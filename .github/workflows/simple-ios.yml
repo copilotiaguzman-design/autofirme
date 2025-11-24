@@ -63,6 +63,7 @@ jobs:
           -configuration Release \
           -destination 'generic/platform=iOS' \
           -archivePath Runner.xcarchive \
+          -allowProvisioningUpdates \
           archive
           
         echo "✅ Archive created successfully!"

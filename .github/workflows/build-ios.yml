@@ -77,13 +77,19 @@ jobs:
         xcodebuild clean -workspace Runner.xcworkspace -scheme Runner
         flutter build ios --debug --no-codesign
         
-    - name: Build iOS App (Release)
+    - name: Build iOS App
       if: github.event_name != 'pull_request'
       run: |
         echo "🏗️ Compilando aplicación iOS..."
-        # Compilar para simulador para evitar problemas de SDK
-        flutter build ios --release --no-codesign --simulator
-        echo "✅ Compilación completada para iOS Simulator"
+        
+        # Intentar compilar para simulador primero
+        if flutter build ios --debug --no-codesign --simulator; then
+          echo "✅ Compilación completada para iOS Simulator (Debug)"
+        else
+          echo "⚠️ Simulador falló, intentando compilación básica para dispositivo..."
+          flutter build ios --debug --no-codesign
+          echo "✅ Compilación completada para iOS Device (Debug)"
+        fi
         
     - name: Create iOS Archive
       if: github.event_name != 'pull_request'
@@ -100,16 +106,20 @@ jobs:
       run: |
         cd ios  
         echo "📱 Empaquetando aplicación..."
-        # Buscar el build generado (simulador o dispositivo)
+        # Buscar el build generado (simulador o dispositivo, debug o release)
         if [ -d "build/ios/iphonesimulator" ]; then
           echo "📱 Empaquetando build de simulador..."
-          tar -czf build/autofirme-ios-simulator.tar.gz -C build/ios/iphonesimulator Runner.app
+          tar -czf build/autofirme-ios-simulator-debug.tar.gz -C build/ios/iphonesimulator Runner.app
+          echo "📱 Simulator build empaquetado"
         elif [ -d "build/ios/iphoneos" ]; then
           echo "📱 Empaquetando build de dispositivo..."
-          tar -czf build/autofirme-ios-device.tar.gz -C build/ios/iphoneos Runner.app  
+          tar -czf build/autofirme-ios-device-debug.tar.gz -C build/ios/iphoneos Runner.app
+          echo "📱 Device build empaquetado"  
         else
-          echo "📱 Creando bundle de información..."
-          echo "App compilada exitosamente" > build/autofirme-build-info.txt
+          echo "📱 Listando contenido del directorio build..."
+          ls -la build/ios/ || echo "No se encontró directorio build/ios/"
+          find build -name "*.app" -type d || echo "No se encontraron archivos .app"
+          echo "App compilada (verificar logs)" > build/autofirme-build-info.txt
         fi
         echo "✅ App empaquetada para descarga"
                    

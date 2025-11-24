@@ -33,7 +33,23 @@ jobs:
         flutter build ios --debug --no-codesign --simulator
         echo "✅ Build completed successfully!"
         
+    - name: Package iOS App
+      run: |
+        echo "📦 Packaging app for download..."
+        cd build/ios/iphonesimulator
+        zip -r autofirme-ios-simulator.zip Runner.app
+        mv autofirme-ios-simulator.zip ../../../
+        echo "✅ App packaged as autofirme-ios-simulator.zip"
+        
+    - name: Upload iOS App
+      uses: actions/upload-artifact@v4
+      with:
+        name: autofirme-ios-app
+        path: autofirme-ios-simulator.zip
+        retention-days: 7
+        
     - name: Success
       run: |
         echo "🎉 Workflow completed!"
-        echo "📱 iOS build finished without errors"
+        echo "📱 iOS app ready for download!"
+        echo "👆 Check the 'Artifacts' section to download autofirme-ios-app"

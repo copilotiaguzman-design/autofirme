@@ -1,4 +1,4 @@
-name: Simple iOS Build
+name: iOS App Store Build
 
 on:
   push:
@@ -24,32 +24,84 @@ jobs:
     - name: Get dependencies
       run: flutter pub get
       
-    - name: Run tests (optional)
+    - name: Run tests
       run: flutter test || echo "Tests completed"
       
-    - name: Build iOS (Debug - No Codesign)
+    - name: Setup Certificates
+      env:
+        IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+        IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
       run: |
-        echo "🏗️ Building iOS app..."
-        flutter build ios --debug --no-codesign --simulator
-        echo "✅ Build completed successfully!"
+        echo "🔑 Setting up certificates..."
+        echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > ios_certificate.p12
         
-    - name: Package iOS App
+        # Import certificate
+        security create-keychain -p "" build.keychain
+        security import ios_certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security list-keychains -s build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain -p "" build.keychain
+        security set-keychain-settings build.keychain
+        echo "✅ Certificates configured"
+        
+    - name: Build iOS Release
       run: |
-        echo "📦 Packaging app for download..."
-        cd build/ios/iphonesimulator
-        zip -r autofirme-ios-simulator.zip Runner.app
-        mv autofirme-ios-simulator.zip ../../../
-        echo "✅ App packaged as autofirme-ios-simulator.zip"
+        echo "🏗️ Building iOS release for App Store..."
+        flutter build ios --release --no-codesign
+        echo "✅ Flutter build completed!"
         
-    - name: Upload iOS App
-      uses: actions/upload-artifact@v4
-      with:
-        name: autofirme-ios-app
-        path: autofirme-ios-simulator.zip
-        retention-days: 7
-        
-    - name: Success
+    - name: Build and Archive
       run: |
-        echo "🎉 Workflow completed!"
-        echo "📱 iOS app ready for download!"
-        echo "👆 Check the 'Artifacts' section to download autofirme-ios-app"
+        echo "📦 Creating App Store archive..."
+        cd ios
+        
+        xcodebuild -workspace Runner.xcworkspace \
+          -scheme Runner \
+          -configuration Release \
+          -destination 'generic/platform=iOS' \
+          -archivePath Runner.xcarchive \
+          archive
+          
+        echo "✅ Archive created successfully!"
+        
+    - name: Export IPA
+      run: |
+        echo "📱 Exporting IPA for App Store..."
+        cd ios
+        
+        # Create export options
+        cat > ExportOptions.plist << EOF
+        <?xml version="1.0" encoding="UTF-8"?>
+        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+        <plist version="1.0">
+        <dict>
+          <key>method</key>
+          <string>app-store</string>
+          <key>teamID</key>
+          <string>\${{ secrets.APPLE_TEAM_ID }}</string>
+        </dict>
+        </plist>
+        EOF
+        
+        xcodebuild -exportArchive \
+          -archivePath Runner.xcarchive \
+          -exportPath . \
+          -exportOptionsPlist ExportOptions.plist
+          
+        echo "✅ IPA exported successfully!"
+        
+    - name: Upload to App Store
+      env:
+        APP_STORE_CONNECT_API_KEY: ${{ secrets.APP_STORE_CONNECT_API_KEY }}
+      run: |
+        echo "🚀 Uploading to App Store Connect..."
+        cd ios
+        
+        xcrun altool --upload-app \
+          --type ios \
+          --file Runner.ipa \
+          --username "${{ secrets.APPLE_ID }}" \
+          --password "${{ secrets.APP_SPECIFIC_PASSWORD }}"
+          
+        echo "✅ App uploaded to App Store Connect!"
+        echo "🎉 Check App Store Connect for processing status"

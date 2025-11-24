@@ -52,8 +52,14 @@ jobs:
     - name: Update Xcode project with Team ID
       if: github.event_name != 'pull_request'
       run: |
-        sed -i '' 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = ${{ secrets.APPLE_TEAM_ID }};/g' ios/Runner.xcodeproj/project.pbxproj
-        sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
+        # Configurar Team ID si está disponible, si no usar firma automática
+        if [ -n "${{ secrets.APPLE_TEAM_ID }}" ]; then
+          sed -i '' 's/DEVELOPMENT_TEAM = ;/DEVELOPMENT_TEAM = ${{ secrets.APPLE_TEAM_ID }};/g' ios/Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' ios/Runner.xcodeproj/project.pbxproj
+        else
+          echo "⚠️ APPLE_TEAM_ID no configurado, usando firma automática"
+          sed -i '' 's/CODE_SIGN_STYLE = Manual;/CODE_SIGN_STYLE = Automatic;/g' ios/Runner.xcodeproj/project.pbxproj
+        fi
         
     - name: Build iOS App (Debug)
       if: github.event_name == 'pull_request'

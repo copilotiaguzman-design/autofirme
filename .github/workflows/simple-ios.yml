@@ -28,21 +28,20 @@ jobs:
       run: flutter test || echo "Tests completed"
       
     - name: Setup Certificates
-      env:
-        IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
-        IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
       run: |
-        echo "🔑 Setting up certificates..."
-        echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > ios_certificate.p12
+        echo "🔑 Setting up certificates from repository files..."
         
-        # Import certificate
+        # Use the certificate file directly from repository
+        cp ios_certificate_new.p12 ios_certificate.p12
+        
+        # Import certificate (no password)
         security create-keychain -p "" build.keychain
-        security import ios_certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+        security import ios_certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign
         security list-keychains -s build.keychain
         security default-keychain -s build.keychain
         security unlock-keychain -p "" build.keychain
         security set-keychain-settings build.keychain
-        echo "✅ Certificates configured"
+        echo "✅ Certificates configured from repository files"
         
     - name: Build iOS Release
       run: |
@@ -100,8 +99,8 @@ jobs:
         xcrun altool --upload-app \
           --type ios \
           --file Runner.ipa \
-          --username "${{ secrets.APPLE_ID }}" \
-          --password "${{ secrets.APP_SPECIFIC_PASSWORD }}"
+          --username "codemtech19@gmail.com" \
+          --password "temp-password-placeholder"
           
         echo "✅ App uploaded to App Store Connect!"
         echo "🎉 Check App Store Connect for processing status"

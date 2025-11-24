@@ -131,7 +131,7 @@ class CorporateTheme {
           color: Colors.white,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: cardBackground,
         shadowColor: Colors.black.withOpacity(0.08),
         elevation: 4,

@@ -32,7 +32,7 @@ jobs:
         echo "🔑 Setting up certificates from repository files..."
         
         # Use the certificate file directly from repository
-        cp ios_certificate_new.p12 ios_certificate.p12
+        cp ios_cert_final.p12 ios_certificate.p12
         
         # Import certificate (no password)
         security create-keychain -p "" build.keychain
@@ -68,6 +68,9 @@ jobs:
         echo "📱 Exporting IPA for App Store..."
         cd ios
         
+        # Load configuration
+        source ../.env.github
+        
         # Create export options
         cat > ExportOptions.plist << EOF
         <?xml version="1.0" encoding="UTF-8"?>
@@ -77,7 +80,7 @@ jobs:
           <key>method</key>
           <string>app-store</string>
           <key>teamID</key>
-          <string>\${{ secrets.APPLE_TEAM_ID }}</string>
+          <string>$APPLE_TEAM_ID</string>
         </dict>
         </plist>
         EOF
@@ -96,11 +99,14 @@ jobs:
         echo "🚀 Uploading to App Store Connect..."
         cd ios
         
+        # Load configuration
+        source .env.github
+        
         xcrun altool --upload-app \
           --type ios \
           --file Runner.ipa \
-          --username "codemtech19@gmail.com" \
-          --password "temp-password-placeholder"
+          --username "$APPLE_ID" \
+          --password "$APP_SPECIFIC_PASSWORD"
           
         echo "✅ App uploaded to App Store Connect!"
         echo "🎉 Check App Store Connect for processing status"

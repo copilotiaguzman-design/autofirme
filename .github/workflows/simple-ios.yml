@@ -31,17 +31,21 @@ jobs:
       run: |
         echo "🔑 Setting up Apple Distribution certificate..."
         
-        # Use the distribution certificate
-        cp ios_distribution_final.p12 ios_certificate.p12
-        
-        # Import certificate (no password)
+        # Create keychain
         security create-keychain -p "" build.keychain
-        security import ios_certificate.p12 -k build.keychain -P "" -T /usr/bin/codesign
         security list-keychains -s build.keychain
         security default-keychain -s build.keychain
         security unlock-keychain -p "" build.keychain
         security set-keychain-settings build.keychain
-        echo "✅ Distribution certificate configured"
+        
+        # Import certificate and private key separately
+        security import ios_distribution.cer -k build.keychain -T /usr/bin/codesign
+        security import ios_private_key.key -k build.keychain -T /usr/bin/codesign
+        
+        # Set partition list for codesigning
+        security set-key-partition-list -S apple-tool:,apple: -s -k "" build.keychain
+        
+        echo "✅ Distribution certificate configured successfully"
         
     - name: Build iOS Release
       run: |

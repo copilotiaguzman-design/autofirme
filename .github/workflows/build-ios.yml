@@ -46,7 +46,15 @@ jobs:
     - name: Setup Xcode
       uses: maxim-lobanov/setup-xcode@v1
       with:
-        xcode-version: latest-stable
+        xcode-version: '15.4'
+        
+    - name: Verify Xcode and iOS SDK
+      run: |
+        echo "🔍 Verificando configuración de Xcode..."
+        xcode-select -p
+        xcrun --show-sdk-version
+        xcrun simctl list devicetypes | head -10
+        xcodebuild -showsdks | grep -i ios
         
     - name: Install Apple Certificate
       if: github.event_name != 'pull_request'
@@ -82,14 +90,27 @@ jobs:
       run: |
         echo "🏗️ Compilando aplicación iOS..."
         
-        # Intentar compilar para simulador primero
-        if flutter build ios --debug --no-codesign --simulator; then
-          echo "✅ Compilación completada para iOS Simulator (Debug)"
-        else
-          echo "⚠️ Simulador falló, intentando compilación básica para dispositivo..."
-          flutter build ios --debug --no-codesign
-          echo "✅ Compilación completada para iOS Device (Debug)"
-        fi
+        # Listar simuladores disponibles
+        echo "📱 Simuladores disponibles:"
+        xcrun simctl list devices available | grep -E "(iPhone|iPad)" | head -5
+        
+        # Compilar para arquitectura específica
+        echo "🔧 Configurando build..."
+        cd ios
+        
+        # Usar xcodebuild directamente para tener más control
+        xcodebuild clean -workspace Runner.xcworkspace -scheme Runner -configuration Debug
+        
+        # Build para simulador con arquitectura específica
+        xcodebuild build -workspace Runner.xcworkspace \
+                   -scheme Runner \
+                   -configuration Debug \
+                   -sdk iphonesimulator \
+                   -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+                   ONLY_ACTIVE_ARCH=YES \
+                   CODE_SIGNING_ALLOWED=NO
+                   
+        echo "✅ Compilación completada"
         
     - name: Create iOS Archive
       if: github.event_name != 'pull_request'
@@ -106,22 +127,27 @@ jobs:
       run: |
         cd ios  
         echo "📱 Empaquetando aplicación..."
-        # Buscar el build generado (simulador o dispositivo, debug o release)
-        if [ -d "build/ios/iphonesimulator" ]; then
+        
+        # Buscar el build de Xcode
+        echo "🔍 Buscando builds generados..."
+        find . -name "Runner.app" -type d
+        
+        # Buscar en el directorio de build de Xcode
+        BUILD_DIR="build/Debug-iphonesimulator"
+        if [ -d "$BUILD_DIR/Runner.app" ]; then
           echo "📱 Empaquetando build de simulador..."
-          tar -czf build/autofirme-ios-simulator-debug.tar.gz -C build/ios/iphonesimulator Runner.app
-          echo "📱 Simulator build empaquetado"
-        elif [ -d "build/ios/iphoneos" ]; then
-          echo "📱 Empaquetando build de dispositivo..."
-          tar -czf build/autofirme-ios-device-debug.tar.gz -C build/ios/iphoneos Runner.app
-          echo "📱 Device build empaquetado"  
+          tar -czf autofirme-ios-simulator.tar.gz -C "$BUILD_DIR" Runner.app
+          echo "� Archivo: autofirme-ios-simulator.tar.gz"
         else
-          echo "📱 Listando contenido del directorio build..."
-          ls -la build/ios/ || echo "No se encontró directorio build/ios/"
-          find build -name "*.app" -type d || echo "No se encontraron archivos .app"
-          echo "App compilada (verificar logs)" > build/autofirme-build-info.txt
+          echo "📱 Explorando directorios de build..."
+          ls -la build/ || echo "No hay directorio build"
+          find build -name "*.app" -type d || echo "No se encontraron .app"
+          
+          # Crear archivo de información
+          echo "Build completado - $(date)" > build-info.txt
+          echo "Verificar logs de compilación para detalles" >> build-info.txt
         fi
-        echo "✅ App empaquetada para descarga"
+        echo "✅ Empaquetado completado"
                    
     - name: Upload iOS App Artifact
       if: github.event_name != 'pull_request'

@@ -27,12 +27,12 @@ jobs:
     - name: Run tests
       run: flutter test || echo "Tests completed"
       
-    - name: Setup Certificates
+    - name: Setup Distribution Certificate
       run: |
-        echo "🔑 Setting up certificates from repository files..."
+        echo "🔑 Setting up Apple Distribution certificate..."
         
-        # Use the certificate file directly from repository
-        cp ios_cert_final.p12 ios_certificate.p12
+        # Use the distribution certificate
+        cp ios_distribution_final.p12 ios_certificate.p12
         
         # Import certificate (no password)
         security create-keychain -p "" build.keychain
@@ -41,7 +41,7 @@ jobs:
         security default-keychain -s build.keychain
         security unlock-keychain -p "" build.keychain
         security set-keychain-settings build.keychain
-        echo "✅ Certificates configured from repository files"
+        echo "✅ Distribution certificate configured"
         
     - name: Build iOS Release
       run: |

@@ -50,8 +50,17 @@ jobs:
         python3 -c "
         import os
         import base64
+        import sys
         
-        secret = os.environ['API_KEY_SECRET'].strip()
+        secret = os.environ.get('API_KEY_SECRET', '').strip()
+        
+        print(f'ℹ️ Debug: Secret length received: {len(secret)}')
+        
+        if not secret:
+            print('❌ CRITICAL ERROR: The secret APP_STORE_CONNECT_PRIVATE_KEY is empty!')
+            print('Please ensure you have added the secret in GitHub Settings > Secrets and variables > Actions.')
+            sys.exit(1)
+
         path = os.path.expanduser('~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8')
         
         content = b''
@@ -61,15 +70,15 @@ jobs:
             clean_secret = secret.replace('\r\n', '\n').replace('\r', '\n')
             content = clean_secret.encode('utf-8')
         else:
-            print('ℹ️ Detected Base64 format')
+            print('ℹ️ Detected Base64 format (or unknown format)')
             # Remove any whitespace/newlines from base64 string
             clean_secret = ''.join(secret.split())
             try:
                 content = base64.b64decode(clean_secret)
-                print('✅ Successfully decoded Base64')
+                print(f'✅ Successfully decoded Base64 (Length: {len(content)} bytes)')
             except Exception as e:
                 print(f'❌ Failed to decode Base64: {e}')
-                exit(1)
+                sys.exit(1)
 
         # Force LF line endings just in case
         if b'\r\n' in content:

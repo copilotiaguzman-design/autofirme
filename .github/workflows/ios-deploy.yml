@@ -80,9 +80,6 @@ jobs:
         echo "✅ API Key configured"
       env:
         API_KEY_SECRET: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
-        chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
-        
-        echo "✅ API Key configured"
 
     - name: Get Flutter Dependencies
       run: flutter pub get

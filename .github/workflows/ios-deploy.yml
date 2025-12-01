@@ -71,6 +71,11 @@ jobs:
                 print(f'❌ Failed to decode Base64: {e}')
                 exit(1)
 
+        # Force LF line endings just in case
+        if b'\r\n' in content:
+            print('ℹ️ Converting CRLF to LF in binary content')
+            content = content.replace(b'\r\n', b'\n')
+            
         with open(path, 'wb') as f:
             f.write(content)
             # Ensure single trailing newline
@@ -80,6 +85,14 @@ jobs:
         
         # Copy to standard locations
         cp ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.appstoreconnect/private_keys/
+        
+        # Debug: Inspect the file (safe info only)
+        echo "🔍 Inspecting generated key file..."
+        ls -l ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        echo "First line:"
+        head -n 1 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        echo "Hex dump of first 20 bytes:"
+        head -c 20 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 | xxd
         
         # Validate the key using altool (this checks if the key is valid before xcodebuild runs)
         echo "🔍 Validating API Key with altool..."

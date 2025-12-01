@@ -46,33 +46,50 @@ jobs:
         mkdir -p ~/private_keys
         mkdir -p ~/.appstoreconnect/private_keys
         
-        # Write API Key to file using Python for robust handling of Base64 or Raw PEM
+        # Write API Key to file using Python for robust handling
         python3 -c "
         import os
         import base64
+        import sys
         
         secret = os.environ['API_KEY_SECRET'].strip()
         path = os.path.expanduser('~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8')
         
+        content_to_write = b''
+        
         if secret.startswith('-----BEGIN'):
             print('ℹ️ Detected raw PEM format')
-            # Ensure newlines are preserved/restored if they were lost
-            # A simple heuristic: replace spaces that should be newlines? 
-            # Actually, if it's raw PEM in env var, newlines are usually preserved by python os.environ
-            with open(path, 'w') as f:
-                f.write(secret)
+            content_to_write = secret.encode('utf-8')
         else:
-            print('ℹ️ Detected Base64 format')
+            print('ℹ️ Input does not start with dashes, attempting Base64 decode')
             try:
-                decoded = base64.b64decode(secret)
-                with open(path, 'wb') as f:
-                    f.write(decoded)
+                decoded = base64.b64decode(secret, validate=True)
+                content_to_write = decoded
+                print('✅ Successfully decoded Base64')
             except Exception as e:
-                print(f'❌ Error decoding Base64: {e}')
-                exit(1)
+                print(f'❌ Failed to decode Base64: {e}')
+                print('⚠️ Falling back to treating input as raw content (unexpected format)')
+                content_to_write = secret.encode('utf-8')
+
+        # Sanity check
+        if b'-----BEGIN PRIVATE KEY-----' not in content_to_write:
+            print('❌ WARNING: The resulting key file does not contain standard PEM headers.')
+            print('This usually means the secret is incorrect or corrupted.')
+        
+        with open(path, 'wb') as f:
+            f.write(content_to_write)
+            # Ensure trailing newline
+            if not content_to_write.endswith(b'\n'):
+                f.write(b'\n')
         "
         
-        cp ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.appstoreconnect/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        # Copy to standard locations
+        cp ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.appstoreconnect/private_keys/
+        
+        # Debug: Print first and last line to verify format (without leaking key)
+        echo "Debug: Checking key file format..."
+        head -n 1 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        tail -n 1 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
         
         chmod 600 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
         chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
@@ -95,8 +112,9 @@ jobs:
         echo "📦 Creating Xcode archive..."
         cd ios
         
-        # Define the key path
-        AUTH_KEY_PATH=~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        # Use absolute path with $HOME to avoid tilde expansion issues
+        AUTH_KEY_PATH="$HOME/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8"
+        echo "Using Auth Key at: $AUTH_KEY_PATH"
         
         xcodebuild clean archive \
                    -workspace Runner.xcworkspace \
@@ -118,7 +136,7 @@ jobs:
         echo "📱 Exporting IPA for App Store..."
         cd ios
         
-        AUTH_KEY_PATH=~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        AUTH_KEY_PATH="$HOME/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8"
         
         cat > ExportOptions.plist << EOF
         <?xml version="1.0" encoding="UTF-8"?>
@@ -159,8 +177,6 @@ jobs:
         # Find the IPA file
         IPA_PATH=$(find . -name "*.ipa" | head -n 1)
         echo "Found IPA: $IPA_PATH"
-        
-        AUTH_KEY_PATH=~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
         
         # Upload using altool with API Key
         xcrun altool --upload-app \

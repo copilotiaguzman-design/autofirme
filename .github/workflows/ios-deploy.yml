@@ -48,7 +48,8 @@ jobs:
         
         # Write API Key to file
         # We use the secret if available.
-        echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" > ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        # IMPORTANT: The secret must be Base64 encoded to avoid formatting issues
+        echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" | base64 -D -o ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
         cp ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.appstoreconnect/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
         
         chmod 600 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8

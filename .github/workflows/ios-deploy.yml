@@ -46,13 +46,40 @@ jobs:
         mkdir -p ~/private_keys
         mkdir -p ~/.appstoreconnect/private_keys
         
-        # Write API Key to file
-        # We use the secret if available.
-        # IMPORTANT: The secret must be Base64 encoded to avoid formatting issues
-        echo "${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}" | base64 -D -o ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        # Write API Key to file using Python for robust handling of Base64 or Raw PEM
+        python3 -c "
+        import os
+        import base64
+        
+        secret = os.environ['API_KEY_SECRET'].strip()
+        path = os.path.expanduser('~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8')
+        
+        if secret.startswith('-----BEGIN'):
+            print('ℹ️ Detected raw PEM format')
+            # Ensure newlines are preserved/restored if they were lost
+            # A simple heuristic: replace spaces that should be newlines? 
+            # Actually, if it's raw PEM in env var, newlines are usually preserved by python os.environ
+            with open(path, 'w') as f:
+                f.write(secret)
+        else:
+            print('ℹ️ Detected Base64 format')
+            try:
+                decoded = base64.b64decode(secret)
+                with open(path, 'wb') as f:
+                    f.write(decoded)
+            except Exception as e:
+                print(f'❌ Error decoding Base64: {e}')
+                exit(1)
+        "
+        
         cp ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.appstoreconnect/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
         
         chmod 600 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        
+        echo "✅ API Key configured"
+      env:
+        API_KEY_SECRET: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
         
         echo "✅ API Key configured"

@@ -50,51 +50,44 @@ jobs:
         python3 -c "
         import os
         import base64
-        import sys
         
         secret = os.environ['API_KEY_SECRET'].strip()
         path = os.path.expanduser('~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8')
         
-        content_to_write = b''
-        
-        if secret.startswith('-----BEGIN'):
-            print('ℹ️ Detected raw PEM format')
-            content_to_write = secret.encode('utf-8')
+        content = b''
+        if '-----BEGIN PRIVATE KEY-----' in secret:
+            print('ℹ️ Detected PEM format')
+            # Normalize line endings to \n to satisfy strict parsers
+            clean_secret = secret.replace('\r\n', '\n').replace('\r', '\n')
+            content = clean_secret.encode('utf-8')
         else:
-            print('ℹ️ Input does not start with dashes, attempting Base64 decode')
+            print('ℹ️ Detected Base64 format')
+            # Remove any whitespace/newlines from base64 string
+            clean_secret = ''.join(secret.split())
             try:
-                decoded = base64.b64decode(secret, validate=True)
-                content_to_write = decoded
+                content = base64.b64decode(clean_secret)
                 print('✅ Successfully decoded Base64')
             except Exception as e:
                 print(f'❌ Failed to decode Base64: {e}')
-                print('⚠️ Falling back to treating input as raw content (unexpected format)')
-                content_to_write = secret.encode('utf-8')
+                exit(1)
 
-        # Sanity check
-        if b'-----BEGIN PRIVATE KEY-----' not in content_to_write:
-            print('❌ WARNING: The resulting key file does not contain standard PEM headers.')
-            print('This usually means the secret is incorrect or corrupted.')
-        
         with open(path, 'wb') as f:
-            f.write(content_to_write)
-            # Ensure trailing newline
-            if not content_to_write.endswith(b'\n'):
+            f.write(content)
+            # Ensure single trailing newline
+            if not content.endswith(b'\n'):
                 f.write(b'\n')
         "
         
         # Copy to standard locations
         cp ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.appstoreconnect/private_keys/
         
-        # Debug: Print first and last line to verify format (without leaking key)
-        echo "Debug: Checking key file format..."
-        head -n 1 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
-        tail -n 1 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
+        # Validate the key using altool (this checks if the key is valid before xcodebuild runs)
+        echo "🔍 Validating API Key with altool..."
+        xcrun altool --list-providers \
+                     --apiKey "${{ env.APP_STORE_CONNECT_KEY_ID }}" \
+                     --apiIssuer "${{ env.APP_STORE_CONNECT_ISSUER_ID }}"
         
-        chmod 600 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
-        chmod 600 ~/.appstoreconnect/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
-        
-        echo "✅ API Key configured"
+        echo "✅ API Key configured and validated"
       env:
         API_KEY_SECRET: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
 
@@ -112,9 +105,8 @@ jobs:
         echo "📦 Creating Xcode archive..."
         cd ios
         
-        # Use absolute path with $HOME to avoid tilde expansion issues
-        AUTH_KEY_PATH="$HOME/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8"
-        echo "Using Auth Key at: $AUTH_KEY_PATH"
+        # We rely on the default search path ~/private_keys/AuthKey_<ID>.p8
+        # This is often more reliable than -authenticationKeyPath
         
         xcodebuild clean archive \
                    -workspace Runner.xcworkspace \
@@ -123,7 +115,6 @@ jobs:
                    -destination 'generic/platform=iOS' \
                    -archivePath $PWD/build/Runner.xcarchive \
                    -allowProvisioningUpdates \
-                   -authenticationKeyPath "$AUTH_KEY_PATH" \
                    -authenticationKeyID "${{ env.APP_STORE_CONNECT_KEY_ID }}" \
                    -authenticationKeyIssuerID "${{ env.APP_STORE_CONNECT_ISSUER_ID }}" \
                    CODE_SIGN_STYLE=Automatic \

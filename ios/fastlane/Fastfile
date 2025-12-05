@@ -3,7 +3,22 @@ default_platform(:ios)
 platform :ios do
   desc "Build and upload to TestFlight"
   lane :deploy do
-    setup_ci
+    # 0. Setup Keychain explicitly
+    # We create a custom keychain to avoid permission issues with the default login keychain
+    keychain_name = "fastlane_build_keychain"
+    keychain_password = "temp_password"
+    
+    create_keychain(
+      name: keychain_name,
+      password: keychain_password,
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false
+    )
+    
+    # On macOS, keychains usually have a -db extension
+    keychain_path = File.expand_path("~/Library/Keychains/#{keychain_name}-db")
 
     # 1. Configure API Key
     # Fastlane handles the key creation/auth automatically
@@ -21,7 +36,8 @@ platform :ios do
     get_certificates(
       output_path: "./build",
       force: false, # Try to download first, but will create if private key is missing locally
-      keychain_path: lane_context[SharedValues::KEYCHAIN_PATH]
+      keychain_path: keychain_path,
+      keychain_password: keychain_password
     )
 
     # 3. Fetch/Create Provisioning Profile (sigh)

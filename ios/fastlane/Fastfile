@@ -20,7 +20,8 @@ platform :ios do
     # If one exists on the portal but we don't have the private key, it will create a new one.
     get_certificates(
       output_path: "./build",
-      force: false # Try to download first, but will create if private key is missing locally
+      force: false, # Try to download first, but will create if private key is missing locally
+      keychain_path: lane_context[SharedValues::KEYCHAIN_PATH]
     )
 
     # 3. Fetch/Create Provisioning Profile (sigh)

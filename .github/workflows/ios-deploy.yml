@@ -33,14 +33,7 @@ jobs:
 
     - name: Setup Keychain and API Key
       run: |
-        echo "🔑 Setting up keychain and API Key..."
-        
-        # Create keychain (needed for xcodebuild to store the fetched certificate)
-        security create-keychain -p "temp_password" build.keychain
-        security list-keychains -s build.keychain
-        security default-keychain -s build.keychain
-        security unlock-keychain -p "temp_password" build.keychain
-        security set-keychain-settings -t 3600 -u build.keychain
+        echo "🔑 Setting up API Key..."
         
         # Create API Key directory
         mkdir -p ~/private_keys
@@ -137,6 +130,5 @@ jobs:
       if: always()
       run: |
         echo "🧹 Cleaning up..."
-        security delete-keychain build.keychain || true
         rm -rf ~/private_keys
         rm -rf ~/.appstoreconnect/private_keys

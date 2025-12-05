@@ -15,18 +15,36 @@ platform :ios do
       in_house: false
     )
 
-    # 2. Build the App (Gym)
-    # We use automatic code signing with the API Key
-    # Note: build_app (gym) does not take 'api_key' directly.
-    # We rely on xcodebuild's automatic signing via -allowProvisioningUpdates
+    # 2. Fetch/Create Certificate (cert)
+    # This ensures we have a valid Distribution Certificate in the keychain.
+    # If one exists on the portal but we don't have the private key, it will create a new one.
+    get_certificates(
+      output_path: "./build",
+      force: false # Try to download first, but will create if private key is missing locally
+    )
+
+    # 3. Fetch/Create Provisioning Profile (sigh)
+    # This ensures we have a valid App Store profile matching the certificate.
+    get_provisioning_profile(
+      app_identifier: "com.autofirme.app",
+      type: "appstore",
+      filename: "AppStore_com.autofirme.app.mobileprovision"
+    )
+
+    # 4. Build the App (gym)
+    # We explicitly tell gym to use the profile we just fetched (ENV['SIGH_UUID'])
     build_app(
       scheme: "Runner",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates -authenticationKeyID #{ENV['APP_STORE_CONNECT_KEY_ID']} -authenticationKeyIssuerID #{ENV['APP_STORE_CONNECT_ISSUER_ID']} CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER=''",
-      export_xcargs: "-allowProvisioningUpdates -authenticationKeyID #{ENV['APP_STORE_CONNECT_KEY_ID']} -authenticationKeyIssuerID #{ENV['APP_STORE_CONNECT_ISSUER_ID']}"
+      export_options: {
+        provisioningProfiles: { 
+          "com.autofirme.app" => ENV["SIGH_UUID"] 
+        }
+      },
+      xcargs: "CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY='Apple Distribution' PROVISIONING_PROFILE_SPECIFIER='#{ENV['SIGH_UUID']}'"
     )
 
-    # 3. Upload to TestFlight (Pilot)
+    # 5. Upload to TestFlight (Pilot)
     upload_to_testflight(
       api_key: api_key,
       skip_waiting_for_build_processing: true

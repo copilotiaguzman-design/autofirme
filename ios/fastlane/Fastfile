@@ -17,11 +17,13 @@ platform :ios do
 
     # 2. Build the App (Gym)
     # We use automatic code signing with the API Key
+    # Note: build_app (gym) does not take 'api_key' directly.
+    # We rely on xcodebuild's automatic signing via -allowProvisioningUpdates
     build_app(
       scheme: "Runner",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates",
-      api_key: api_key
+      xcargs: "-allowProvisioningUpdates -authenticationKeyID #{ENV['APP_STORE_CONNECT_KEY_ID']} -authenticationKeyIssuerID #{ENV['APP_STORE_CONNECT_ISSUER_ID']}",
+      export_xcargs: "-allowProvisioningUpdates -authenticationKeyID #{ENV['APP_STORE_CONNECT_KEY_ID']} -authenticationKeyIssuerID #{ENV['APP_STORE_CONNECT_ISSUER_ID']}"
     )
 
     # 3. Upload to TestFlight (Pilot)

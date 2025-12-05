@@ -116,98 +116,25 @@ jobs:
     - name: Get Flutter Dependencies
       run: flutter pub get
 
-    - name: Build iOS Release (No Codesign)
+    - name: Setup Fastlane
       run: |
-        echo "🔨 Building iOS release..."
-        flutter build ios --release --no-tree-shake-icons --no-codesign
-        echo "✅ iOS build complete"
-
-    - name: Build Archive with API Key
-      run: |
-        echo "📦 Creating Xcode archive..."
         cd ios
+        # Ensure fastlane is up to date
+        gem install fastlane
         
-        # Use absolute path with $HOME to avoid tilde expansion issues
-        AUTH_KEY_PATH="$HOME/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8"
-        echo "Using Auth Key at: $AUTH_KEY_PATH"
-        
-        xcodebuild clean archive \
-                   -workspace Runner.xcworkspace \
-                   -scheme Runner \
-                   -configuration Release \
-                   -destination 'generic/platform=iOS' \
-                   -archivePath $PWD/build/Runner.xcarchive \
-                   -allowProvisioningUpdates \
-                   -allowProvisioningDeviceRegistration \
-                   -authenticationKeyPath "$AUTH_KEY_PATH" \
-                   -authenticationKeyID "${{ env.APP_STORE_CONNECT_KEY_ID }}" \
-                   -authenticationKeyIssuerID "${{ env.APP_STORE_CONNECT_ISSUER_ID }}" \
-                   CODE_SIGN_STYLE=Manual \
-                   CODE_SIGN_IDENTITY="Apple Distribution" \
-                   DEVELOPMENT_TEAM="${{ env.APPLE_TEAM_ID }}" \
-                   PRODUCT_BUNDLE_IDENTIFIER="com.autofirme.app" \
-                   PROVISIONING_PROFILE_SPECIFIER="" \
-                   CODE_SIGNING_ALLOWED=NO
-        echo "✅ Archive created successfully"
-
-    - name: Export IPA for App Store
+    - name: Deploy with Fastlane
       run: |
-        echo "📱 Exporting IPA for App Store..."
         cd ios
-        
-        AUTH_KEY_PATH="$HOME/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8"
-        
-        cat > ExportOptions.plist << EOF
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-          <key>teamID</key>
-          <string>${{ env.APPLE_TEAM_ID }}</string>
-          <key>method</key>
-          <string>app-store</string>
-          <key>uploadBitcode</key>
-          <false/>
-          <key>compileBitcode</key>
-          <false/>
-          <key>uploadSymbols</key>
-          <true/>
-          <key>signingStyle</key>
-          <string>automatic</string>
-        </dict>
-        </plist>
-        EOF
-        
-        xcodebuild -exportArchive \
-                   -archivePath $PWD/build/Runner.xcarchive \
-                   -exportOptionsPlist $PWD/ExportOptions.plist \
-                   -exportPath $PWD/build \
-                   -allowProvisioningUpdates \
-                   -authenticationKeyPath "$AUTH_KEY_PATH" \
-                   -authenticationKeyID "${{ env.APP_STORE_CONNECT_KEY_ID }}" \
-                   -authenticationKeyIssuerID "${{ env.APP_STORE_CONNECT_ISSUER_ID }}"
-        echo "✅ IPA exported successfully"
-
-    - name: Upload to App Store Connect
-      run: |
-        echo "🚀 Uploading to App Store Connect..."
-        cd ios/build
-        
-        # Find the IPA file
-        IPA_PATH=$(find . -name "*.ipa" | head -n 1)
-        echo "Found IPA: $IPA_PATH"
-        
-        # Upload using altool with API Key
-        xcrun altool --upload-app \
-                     --type ios \
-                     --file "$IPA_PATH" \
-                     --apiKey "${{ env.APP_STORE_CONNECT_KEY_ID }}" \
-                     --apiIssuer "${{ env.APP_STORE_CONNECT_ISSUER_ID }}" \
-                     --verbose
-        
-        echo "✅ Upload to App Store Connect completed!"
+        fastlane deploy
+      env:
+        APP_STORE_CONNECT_KEY_ID: ${{ env.APP_STORE_CONNECT_KEY_ID }}
+        APP_STORE_CONNECT_ISSUER_ID: ${{ env.APP_STORE_CONNECT_ISSUER_ID }}
+        APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        APPLE_TEAM_ID: ${{ env.APPLE_TEAM_ID }}
+        MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.GITHUB_TOKEN }} # Just in case
 
     - name: Clean up
+      if: always()
       run: |
         echo "🧹 Cleaning up..."
         security delete-keychain build.keychain || true

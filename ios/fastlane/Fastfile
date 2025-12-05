@@ -1,0 +1,33 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Build and upload to TestFlight"
+  lane :deploy do
+    setup_ci
+
+    # 1. Configure API Key
+    # Fastlane handles the key creation/auth automatically
+    api_key = app_store_connect_api_key(
+      key_id: ENV["APP_STORE_CONNECT_KEY_ID"],
+      issuer_id: ENV["APP_STORE_CONNECT_ISSUER_ID"],
+      key_content: ENV["APP_STORE_CONNECT_PRIVATE_KEY"],
+      is_key_content_base64: false, # We are passing raw PEM now
+      in_house: false
+    )
+
+    # 2. Build the App (Gym)
+    # We use automatic code signing with the API Key
+    build_app(
+      scheme: "Runner",
+      export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates",
+      api_key: api_key
+    )
+
+    # 3. Upload to TestFlight (Pilot)
+    upload_to_testflight(
+      api_key: api_key,
+      skip_waiting_for_build_processing: true
+    )
+  end
+end

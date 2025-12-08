@@ -11,7 +11,7 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'dart:io';
-import 'dart:html' as html;
+import '../../utils/platform_helper.dart';
 import 'package:flutter/foundation.dart';
 
 void main() {
@@ -1414,18 +1414,8 @@ class _PlacasScreenState extends State<PlacasScreen> {
   ) async {
     try {
       if (kIsWeb) {
-        // En web: descargar directamente
-        final blob = html.Blob([pdfBytes], 'application/pdf');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor =
-            html.document.createElement('a') as html.AnchorElement
-              ..href = url
-              ..style.display = 'none'
-              ..download = nombreArchivo;
-        html.document.body?.children.add(anchor);
-        anchor.click();
-        html.document.body?.children.remove(anchor);
-        html.Url.revokeObjectUrl(url);
+        // En web: descargar directamente usando helper
+        downloadFileWeb(pdfBytes, nombreArchivo);
 
         print("✅ PDF descargado en navegador: $nombreArchivo");
 
@@ -5510,18 +5500,8 @@ class _CompraVentaScreenState extends State<CompraVentaScreen> {
   ) async {
     try {
       if (kIsWeb) {
-        // En web: descargar directamente
-        final blob = html.Blob([pdfBytes], 'application/pdf');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor =
-            html.document.createElement('a') as html.AnchorElement
-              ..href = url
-              ..style.display = 'none'
-              ..download = nombreArchivo;
-        html.document.body?.children.add(anchor);
-        anchor.click();
-        html.document.body?.children.remove(anchor);
-        html.Url.revokeObjectUrl(url);
+        // En web: descargar directamente usando helper
+        downloadFileWeb(pdfBytes, nombreArchivo);
 
         print("✅ PDF descargado en navegador: $nombreArchivo");
 

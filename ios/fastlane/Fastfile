@@ -12,24 +12,16 @@ platform :ios do
       in_house: false
     )
 
-    # Create/download Distribution Certificate
-    # This will create a new cert if needed and install it in the default keychain
-    cert(
-      api_key: api_key,
-      output_path: "./build"
-    )
-
-    # Create/download App Store Provisioning Profile
-    # This will create the profile matching the cert and app ID
+    # The certificate is already imported in the keychain by the workflow
+    # We just need to get/create the provisioning profile
     sigh(
       api_key: api_key,
       app_identifier: "com.autofirme.app",
-      readonly: false, # Allow creation if it doesn't exist
-      force: false # Try to use existing first
+      readonly: false,
+      force: false
     )
 
     # Build with the profile we just created
-    # ENV['SIGH_UUID'] is automatically set by sigh action
     build_app(
       scheme: "Runner",
       export_method: "app-store",
@@ -41,7 +33,7 @@ platform :ios do
       export_options: {
         method: "app-store",
         provisioningProfiles: {
-          "com.autofirme.app" => ENV["SIGH_UUID"]
+          "com.autofirme.app" => ENV["sigh_com.autofirme.app_appstore"]
         }
       }
     )

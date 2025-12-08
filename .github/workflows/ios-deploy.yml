@@ -31,80 +31,83 @@ jobs:
         channel: 'stable'
         cache: true
 
-    - name: Setup Keychain and API Key
+    - name: Setup Keychain and Certificates
       run: |
-        echo "🔑 Setting up API Key..."
+        echo "🔑 Setting up Keychain and Certificates..."
         
-        # Create API Key directory
+        # Create a temporary keychain
+        KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+        KEYCHAIN_PASSWORD="temporary_password"
+        
+        security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+        security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        
+        # Import Distribution Certificate
+        echo "📜 Importing Distribution Certificate..."
+        CERT_PATH=$RUNNER_TEMP/distribution.p12
+        echo "$DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
+        
+        security import "$CERT_PATH" \
+          -P "$DISTRIBUTION_CERTIFICATE_PASSWORD" \
+          -A \
+          -t cert \
+          -f pkcs12 \
+          -k "$KEYCHAIN_PATH"
+        
+        # Add keychain to search list and make it default
+        security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+        security default-keychain -s "$KEYCHAIN_PATH"
+        
+        # Set key partition list (required for codesign to access the key)
+        security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+        
+        # Verify certificate was imported
+        echo "🔍 Verifying certificate import..."
+        security find-identity -v -p codesigning "$KEYCHAIN_PATH"
+        
+        # Create API Key directory and file
         mkdir -p ~/private_keys
         mkdir -p ~/.appstoreconnect/private_keys
         
-        # Write API Key to file using Python for robust handling
+        # Write API Key to file
         python3 -c "
-        import os
-        import base64
-        import sys
-        
-        secret = os.environ.get('API_KEY_SECRET', '').strip()
-        
-        print(f'ℹ️ Debug: Secret length received: {len(secret)}')
-        
-        if not secret:
-            print('❌ CRITICAL ERROR: The secret APP_STORE_CONNECT_PRIVATE_KEY is empty!')
-            print('Please ensure you have added the secret in GitHub Settings > Secrets and variables > Actions.')
-            sys.exit(1)
+import os
+import base64
+import sys
 
-        path = os.path.expanduser('~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8')
-        
-        content = b''
-        if '-----BEGIN PRIVATE KEY-----' in secret:
-            print('ℹ️ Detected PEM format')
-            # Normalize line endings to \n to satisfy strict parsers
-            clean_secret = secret.replace('\r\n', '\n').replace('\r', '\n')
-            content = clean_secret.encode('utf-8')
-        else:
-            print('ℹ️ Detected Base64 format (or unknown format)')
-            # Remove any whitespace/newlines from base64 string
-            clean_secret = ''.join(secret.split())
-            try:
-                content = base64.b64decode(clean_secret)
-                print(f'✅ Successfully decoded Base64 (Length: {len(content)} bytes)')
-            except Exception as e:
-                print(f'❌ Failed to decode Base64: {e}')
-                sys.exit(1)
+secret = os.environ.get('API_KEY_SECRET', '').strip()
 
-        # Force LF line endings just in case
-        if b'\r\n' in content:
-            print('ℹ️ Converting CRLF to LF in binary content')
-            content = content.replace(b'\r\n', b'\n')
-            
-        with open(path, 'wb') as f:
-            f.write(content)
-            # Ensure single trailing newline
-            if not content.endswith(b'\n'):
-                f.write(b'\n')
-        "
+if not secret:
+    print('❌ CRITICAL ERROR: The secret APP_STORE_CONNECT_PRIVATE_KEY is empty!')
+    sys.exit(1)
+
+path = os.path.expanduser('~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8')
+
+if '-----BEGIN PRIVATE KEY-----' in secret:
+    content = secret.replace('\r\n', '\n').replace('\r', '\n').encode('utf-8')
+else:
+    clean_secret = ''.join(secret.split())
+    content = base64.b64decode(clean_secret)
+
+with open(path, 'wb') as f:
+    f.write(content)
+    if not content.endswith(b'\n'):
+        f.write(b'\n')
+print('✅ API Key written successfully')
+"
         
-        # Copy to standard locations
         cp ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.appstoreconnect/private_keys/
         
-        # Debug: Inspect the file (safe info only)
-        echo "🔍 Inspecting generated key file..."
-        ls -l ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
-        echo "First line:"
-        head -n 1 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8
-        echo "Hex dump of first 20 bytes:"
-        head -c 20 ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 | xxd
+        # Export keychain path for Fastlane
+        echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+        echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
         
-        # Validate the key using altool (this checks if the key is valid before xcodebuild runs)
-        echo "🔍 Validating API Key with altool..."
-        xcrun altool --list-providers \
-                     --apiKey "${{ env.APP_STORE_CONNECT_KEY_ID }}" \
-                     --apiIssuer "${{ env.APP_STORE_CONNECT_ISSUER_ID }}"
-        
-        echo "✅ API Key configured and validated"
+        echo "✅ Keychain and certificates configured"
       env:
         API_KEY_SECRET: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+        DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.DISTRIBUTION_CERTIFICATE_BASE64 }}
+        DISTRIBUTION_CERTIFICATE_PASSWORD: ${{ secrets.DISTRIBUTION_CERTIFICATE_PASSWORD }}
 
     - name: Get Flutter Dependencies
       run: flutter pub get
@@ -124,11 +127,15 @@ jobs:
         APP_STORE_CONNECT_ISSUER_ID: ${{ env.APP_STORE_CONNECT_ISSUER_ID }}
         APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
         APPLE_TEAM_ID: ${{ env.APPLE_TEAM_ID }}
-        MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.GITHUB_TOKEN }} # Just in case
+        KEYCHAIN_PATH: ${{ env.KEYCHAIN_PATH }}
+        KEYCHAIN_PASSWORD: ${{ env.KEYCHAIN_PASSWORD }}
 
     - name: Clean up
       if: always()
       run: |
         echo "🧹 Cleaning up..."
+        security delete-keychain "$KEYCHAIN_PATH" || true
         rm -rf ~/private_keys
         rm -rf ~/.appstoreconnect/private_keys
+      env:
+        KEYCHAIN_PATH: ${{ env.KEYCHAIN_PATH }}

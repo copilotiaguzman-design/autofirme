@@ -96,6 +96,14 @@ jobs:
     - name: Get Flutter Dependencies
       run: flutter pub get
 
+    - name: Build Flutter iOS
+      run: flutter build ios --release --no-codesign
+
+    - name: Install CocoaPods
+      run: |
+        cd ios
+        pod install
+
     - name: Setup Fastlane
       run: |
         cd ios

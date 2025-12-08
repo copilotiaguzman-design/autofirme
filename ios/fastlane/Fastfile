@@ -20,6 +20,15 @@ platform :ios do
       readonly: false
     )
 
+    # Update the project to use the provisioning profile
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      path: "./Runner.xcodeproj",
+      team_id: ENV["APPLE_TEAM_ID"],
+      profile_name: lane_context[SharedValues::SIGH_NAME],
+      code_sign_identity: "iPhone Distribution"
+    )
+
     # Build with the profile we just created
     build_app(
       scheme: "Runner",
@@ -31,8 +40,9 @@ platform :ios do
       output_name: "autofirme.ipa",
       export_options: {
         method: "app-store",
+        signingStyle: "manual",
         provisioningProfiles: {
-          "com.autofirme.app" => ENV["sigh_com.autofirme.app_appstore"]
+          "com.autofirme.app" => lane_context[SharedValues::SIGH_NAME]
         }
       }
     )

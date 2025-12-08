@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
+import 'screens/home_screen.dart';
 import 'theme/corporate_theme.dart';
 
 void main() {
@@ -27,7 +28,12 @@ class AutofirmeApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const LoginScreen(),
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => const LoginScreen(),
+        '/': (context) => const HomeScreen(),
+        '/home': (context) => const HomeScreen(),
+      },
     );
   }
 }

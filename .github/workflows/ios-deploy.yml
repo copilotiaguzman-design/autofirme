@@ -70,33 +70,15 @@ jobs:
         mkdir -p ~/private_keys
         mkdir -p ~/.appstoreconnect/private_keys
         
-        # Write API Key to file
-        python3 << 'EOF'
-import os
-import base64
-import sys
-
-secret = os.environ.get('API_KEY_SECRET', '').strip()
-key_id = os.environ.get('KEY_ID', '')
-
-if not secret:
-    print('CRITICAL ERROR: The secret APP_STORE_CONNECT_PRIVATE_KEY is empty!')
-    sys.exit(1)
-
-path = os.path.expanduser(f'~/private_keys/AuthKey_{key_id}.p8')
-
-if '-----BEGIN PRIVATE KEY-----' in secret:
-    content = secret.replace('\r\n', '\n').replace('\r', '\n').encode('utf-8')
-else:
-    clean_secret = ''.join(secret.split())
-    content = base64.b64decode(clean_secret)
-
-with open(path, 'wb') as f:
-    f.write(content)
-    if not content.endswith(b'\n'):
-        f.write(b'\n')
-print('API Key written successfully')
-EOF
+        # Write API Key to file using base64 decoding or direct copy
+        if echo "$API_KEY_SECRET" | grep -q "BEGIN PRIVATE KEY"; then
+          echo "Detected PEM format"
+          echo "$API_KEY_SECRET" | tr -d '\r' > ~/private_keys/AuthKey_${KEY_ID}.p8
+        else
+          echo "Detected Base64 format"
+          echo "$API_KEY_SECRET" | tr -d ' \n\r' | base64 --decode > ~/private_keys/AuthKey_${KEY_ID}.p8
+        fi
+        echo "API Key written successfully"
         
         cp ~/private_keys/AuthKey_${{ env.APP_STORE_CONNECT_KEY_ID }}.p8 ~/.appstoreconnect/private_keys/
         

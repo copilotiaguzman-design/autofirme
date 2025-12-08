@@ -1,60 +1,33 @@
 ﻿import 'package:flutter/material.dart';
+import 'screens/login_screen.dart';
+import 'theme/corporate_theme.dart';
 
 void main() {
-  runApp(const MyApp());
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const AutofirmeApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class AutofirmeApp extends StatelessWidget {
+  const AutofirmeApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Test App',
-      home: const TestScreen(),
+      title: 'Autofirme Sistema',
       debugShowCheckedModeBanner: false,
-    );
-  }
-}
-
-class TestScreen extends StatelessWidget {
-  const TestScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Test Básico'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
-      ),
-      body: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.check_circle, size: 80, color: Colors.green),
-            SizedBox(height: 20),
-            Text(
-              '¡Aplicación Funcionando!',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Colors.green,
-              ),
-            ),
-            SizedBox(height: 10),
-            Text(
-              'Test básico exitoso',
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            SizedBox(height: 30),
-            Text(
-              'Sin dependencias externas',
-              style: TextStyle(fontSize: 14, color: Colors.blue),
-            ),
-          ],
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: CorporateTheme.primaryBlue,
+          brightness: Brightness.light,
+        ),
+        useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          backgroundColor: CorporateTheme.primaryBlue,
+          foregroundColor: Colors.white,
+          elevation: 0,
         ),
       ),
+      home: const LoginScreen(),
     );
   }
 }

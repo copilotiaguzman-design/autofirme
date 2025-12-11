@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/public/catalog_screen.dart';
 import 'theme/corporate_theme.dart';
 
 void main() {
@@ -14,7 +15,7 @@ class AutofirmeApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Autofirme Sistema',
+      title: 'Autofirme',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
@@ -28,8 +29,9 @@ class AutofirmeApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      initialRoute: '/login',
+      initialRoute: '/catalog',
       routes: {
+        '/catalog': (context) => const CatalogScreen(),
         '/login': (context) => const LoginScreen(),
         '/': (context) => const HomeScreen(),
         '/home': (context) => const HomeScreen(),

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../../core/exports.dart';
 import '../../services/inventario_service.dart';
+import '../../services/sync_service.dart';
 import '../../services/auth_service.dart';
 
 class VehiculoFormScreen extends StatefulWidget {
@@ -1105,72 +1106,49 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
           ? double.parse(_precioSugeridoController.text.trim()) 
           : 0.0;
 
-      Map<String, dynamic> result;
+      // Construir datos del vehículo
+      final vehiculoData = {
+        'ano': _anoController.text.trim(),
+        'marca': _marcaController.text.trim(),
+        'modelo': _modeloController.text.trim(),
+        'vin': _vinController.text.trim(),
+        'color': _colorController.text.trim(),
+        'motor': _motorController.text.trim(),
+        'traccion': _traccionController.text.trim(),
+        'version': _versionController.text.trim(),
+        'comercializadora': _comercializadoraController.text.trim(),
+        'costo': costo,
+        'gastos': gastos,
+        'precioSugerido': precioSugerido,
+        'estado': _estado,
+        'imagen': _imagenController.text.trim().isNotEmpty ? _imagenController.text.trim() : '',
+        'nombreUsuario': userName,
+        'correoUsuario': userEmail,
+        // Incluir el ID de Sheets para sincronización
+        if (widget.isEditing) 'id': widget.vehiculo!['id']?.toString() ?? '',
+      };
 
       if (widget.isEditing) {
-        // Actualizar vehículo existente
-        result = await InventarioService.actualizarVehiculo(
-          id: widget.vehiculo!['id'].toString(),
-          ano: _anoController.text.trim(),
-          marca: _marcaController.text.trim(),
-          modelo: _modeloController.text.trim(),
-          vin: _vinController.text.trim(),
-          color: _colorController.text.trim(),
-          motor: _motorController.text.trim(),
-          traccion: _traccionController.text.trim(),
-          version: _versionController.text.trim(),
-          comercializadora: _comercializadoraController.text.trim(),
-          costo: costo,
-          gastos: gastos,
-          precioSugerido: precioSugerido,
-          estado: _estado,
-          imagen: _imagenController.text.trim().isNotEmpty ? _imagenController.text.trim() : null,
-        );
+        // Actualizar vehículo existente usando SyncService (Firestore + Sheets)
+        final docId = widget.vehiculo!['docId']?.toString() ?? widget.vehiculo!['id'].toString();
+        await SyncService.actualizarVehiculo(docId, vehiculoData);
       } else {
-        // Agregar nuevo vehículo
-        result = await InventarioService.agregarVehiculo(
-          ano: _anoController.text.trim(),
-          marca: _marcaController.text.trim(),
-          modelo: _modeloController.text.trim(),
-          vin: _vinController.text.trim(),
-          color: _colorController.text.trim(),
-          motor: _motorController.text.trim(),
-          traccion: _traccionController.text.trim(),
-          version: _versionController.text.trim(),
-          comercializadora: _comercializadoraController.text.trim(),
-          costo: costo,
-          gastos: gastos,
-          precioSugerido: precioSugerido,
-          estado: _estado,
-          imagen: _imagenController.text.trim().isNotEmpty ? _imagenController.text.trim() : null,
-          nombreUsuario: userName,
-          correoUsuario: userEmail,
-        );
+        // Agregar nuevo vehículo usando SyncService (Firestore + Sheets)
+        await SyncService.agregarVehiculo(vehiculoData);
       }
 
-      if (result['success'] == true) {
-        if (!mounted) return;
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(widget.isEditing 
-              ? '✅ Vehículo actualizado exitosamente' 
-              : '✅ Vehículo agregado exitosamente'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        
-        Navigator.pop(context, true); // Retornar true para indicar cambios
-      } else {
-        if (!mounted) return;
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['error'] ?? 'Error al guardar vehículo'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      if (!mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.isEditing 
+            ? '✅ Vehículo actualizado exitosamente' 
+            : '✅ Vehículo agregado exitosamente'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      
+      Navigator.pop(context, true); // Retornar true para indicar cambios
     } catch (e) {
       if (!mounted) return;
       

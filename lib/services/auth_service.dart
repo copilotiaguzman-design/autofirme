@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'usuarios_service.dart';
+import 'sync_service.dart';
 
 class AuthService extends ChangeNotifier {
   static const String _keyIsLoggedIn = 'isLoggedIn';
@@ -44,13 +44,13 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Iniciar sesión usando UsuariosService
+  /// Iniciar sesión usando Firestore (SyncService)
   Future<AuthResult> login(String email, String password, bool rememberMe) async {
     _setLoading(true);
     
     try {
-      // Validar credenciales usando UsuariosService
-      final loginResult = await UsuariosService.validarLogin(
+      // Validar credenciales usando SyncService (Firestore)
+      final loginResult = await SyncService.validarLogin(
         correo: email,
         contrasena: password,
       );

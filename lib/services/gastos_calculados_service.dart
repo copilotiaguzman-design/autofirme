@@ -1,4 +1,5 @@
 import 'gastos_service.dart';
+import 'sync_service.dart';
 
 /// Servicio para calcular gastos asociados a cada VIN
 /// No modifica Google Apps Script, solo calcula totales localmente
@@ -65,8 +66,8 @@ class GastosCalculadosService {
     try {
       print('INFO [$_logPrefix] Recalculando todos los gastos...');
       
-      // Obtener todos los gastos desde GastosService
-      final todosLosGastos = await GastosService.obtenerGastos();
+      // Obtener todos los gastos desde Firestore (no Sheets)
+      final todosLosGastos = await SyncService.obtenerGastos();
       
       // Limpiar cache anterior
       _gastosCache.clear();
@@ -85,11 +86,6 @@ class GastosCalculadosService {
       _lastCacheUpdate = DateTime.now();
       
       print('INFO [$_logPrefix] Cache actualizado con gastos para ${_gastosCache.length} VINs');
-      
-      // Log de los totales calculados
-      _gastosCache.forEach((vin, total) {
-        print('INFO [$_logPrefix] VIN $vin: \$${total.toStringAsFixed(2)}');
-      });
       
     } catch (e) {
       print('ERROR [$_logPrefix] Error al recalcular gastos: $e');

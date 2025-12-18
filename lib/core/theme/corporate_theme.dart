@@ -10,6 +10,7 @@ class CorporateTheme {
   static const Color textPrimary = Color(0xFF1F2937);
   static const Color textSecondary = Color(0xFF6B7280);
   static const Color dividerColor = Color(0xFFE5E7EB);
+  static const Color surfaceColor = Color(0xFFF1F5F9);
 
   // Gradientes corporativos
   static const LinearGradient primaryGradient = LinearGradient(

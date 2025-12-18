@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/corporate_theme.dart';
-import '../../services/inventario_service.dart';
+import '../../services/sync_service.dart';
 import 'vehicle_detail_screen.dart';
 import '../login_screen.dart';
 
@@ -30,7 +30,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
   Future<void> _loadVehicles() async {
     setState(() => _isLoading = true);
     try {
-      final vehicles = await InventarioService.obtenerInventario();
+      final vehicles = await SyncService.obtenerInventario();
       setState(() {
         _vehicles = vehicles.where((v) => 
           v['estado']?.toString().toLowerCase() == 'disponible'

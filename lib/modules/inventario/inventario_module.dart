@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../core/exports.dart';
 import '../../services/inventario_service.dart';
+import '../../services/sync_service.dart';
 import '../../services/gastos_calculados_service.dart';
 import '../../services/auth_service.dart';
 import 'vehiculo_form_screen.dart';
@@ -69,9 +70,14 @@ class _InventarioModuleState extends State<InventarioModule> {
   Future<void> _cargarDatos() async {
     setState(() => _isLoading = true);
     try {
-      final vehiculos = await InventarioService.obtenerInventario();
-      final estadisticas = await InventarioService.obtenerEstadisticas();
-      final marcas = await InventarioService.obtenerMarcas();
+      // Solo cargar de Firestore
+      final vehiculos = await SyncService.obtenerInventario();
+      
+      // Calcular estadísticas localmente (no ir a Sheets)
+      final estadisticas = _calcularEstadisticasLocales(vehiculos);
+      
+      // Obtener marcas localmente (no ir a Sheets)
+      final marcas = _obtenerMarcasLocales(vehiculos);
       
       // Cargar gastos calculados si el usuario tiene permisos
       Map<String, double> gastosCalculados = {};
@@ -160,6 +166,64 @@ class _InventarioModuleState extends State<InventarioModule> {
     return 1.6; // Móvil más compacto
   }
 
+  // Calcular estadísticas localmente desde los datos de Firestore
+  Map<String, dynamic> _calcularEstadisticasLocales(List<Map<String, dynamic>> vehiculos) {
+    int disponibles = 0;
+    int vendidos = 0;
+    int reservados = 0;
+    int enReparacion = 0;
+    int enTransito = 0;
+    double valorTotal = 0;
+    int totalDias = 0;
+
+    for (var v in vehiculos) {
+      final estado = v['estado']?.toString() ?? 'Disponible';
+      switch (estado) {
+        case 'Disponible':
+          disponibles++;
+          break;
+        case 'Vendido':
+          vendidos++;
+          break;
+        case 'Reservado':
+          reservados++;
+          break;
+        case 'En Reparación':
+          enReparacion++;
+          break;
+        case 'En Tránsito':
+          enTransito++;
+          break;
+      }
+      valorTotal += double.tryParse(v['precioSugerido']?.toString() ?? '0') ?? 0;
+      totalDias += int.tryParse(v['diasInventario']?.toString() ?? '0') ?? 0;
+    }
+
+    return {
+      'totalVehiculos': vehiculos.length,
+      'disponibles': disponibles,
+      'vendidos': vendidos,
+      'reservados': reservados,
+      'enReparacion': enReparacion,
+      'enTransito': enTransito,
+      'valorTotal': valorTotal,
+      'promedioInventario': vehiculos.isEmpty ? 0 : (totalDias / vehiculos.length).round(),
+    };
+  }
+
+  // Obtener marcas únicas localmente
+  List<String> _obtenerMarcasLocales(List<Map<String, dynamic>> vehiculos) {
+    final marcasSet = <String>{};
+    for (var v in vehiculos) {
+      final marca = v['marca']?.toString() ?? '';
+      if (marca.isNotEmpty) {
+        marcasSet.add(marca);
+      }
+    }
+    final marcas = marcasSet.toList()..sort();
+    return marcas;
+  }
+
   // Helper para truncar VIN de manera segura
   String _truncateVin(String? vin) {
     if (vin == null) return 'N/A';
@@ -213,9 +277,9 @@ class _InventarioModuleState extends State<InventarioModule> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildEstadisticasCard(),
-                    SizedBox(height: isMobile ? 8 : 12),
+                    SizedBox(height: 12),
                     _buildFiltrosSection(),
-                    SizedBox(height: isMobile ? 8 : 12),
+                    SizedBox(height: 8),
                     _vistaTabla ? _buildVehiculosTabla() : _buildVehiculosGaleria(),
                   ],
                 ),
@@ -223,26 +287,21 @@ class _InventarioModuleState extends State<InventarioModule> {
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _agregarVehiculo,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Agregar Vehículo', style: TextStyle(color: Colors.white),),
+        icon: const Icon(Icons.add, color: Colors.white, size: 20),
+        label: const Text('Nuevo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         backgroundColor: CorporateTheme.primaryBlue,
+        elevation: 2,
       ),
     );
   }
 
   Widget _buildEstadisticasCard() {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 12 : 16),
+      padding: EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: CorporateTheme.dividerColor.withOpacity(0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -283,57 +342,31 @@ class _InventarioModuleState extends State<InventarioModule> {
             childAspectRatio: isDesktop ? 2.8 : (isTablet ? 2.5 : 2.0),
             children: [
               _buildEstadisticaItem(
-                'Total Vehículos',
+                'Total',
                 _estadisticas['totalVehiculos']?.toString() ?? '0',
-                Icons.directions_car,
-                Colors.blue,
+                Icons.directions_car_rounded,
+                CorporateTheme.primaryBlue,
               ),
               _buildEstadisticaItem(
                 'Disponibles',
                 _estadisticas['disponibles']?.toString() ?? '0',
-                Icons.check_circle,
-                Colors.green,
+                Icons.check_circle_outline_rounded,
+                Color(0xFF10B981),
               ),
               _buildEstadisticaItem(
                 'Vendidos',
                 _estadisticas['vendidos']?.toString() ?? '0',
-                Icons.sell,
-                Colors.orange,
+                Icons.sell_rounded,
+                Color(0xFFF59E0B),
               ),
               _buildEstadisticaItem(
-                'Promedio Días',
+                'Prom. Días',
                 _estadisticas['promedioInventario']?.toString() ?? '0',
-                Icons.schedule,
-                Colors.purple,
+                Icons.schedule_rounded,
+                Color(0xFF8B5CF6),
               ),
             ],
           ),
-          // Valor total más compacto e integrado
-          if (_estadisticas['valorTotal'] != null && !isMobile) ...[
-            SizedBox(height: 6),
-            Container(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.green.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.attach_money, color: Colors.green, size: 16),
-                  SizedBox(width: 4),
-                  Text(
-                    'Total: \$${(_estadisticas['valorTotal'] as double).toStringAsFixed(0)}',
-                    style: CorporateTheme.caption.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -341,36 +374,44 @@ class _InventarioModuleState extends State<InventarioModule> {
 
   Widget _buildEstadisticaItem(String titulo, String valor, IconData icono, Color color) {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 6 : 8),
+      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          Icon(icono, color: color, size: isMobile ? 14 : 16),
-          SizedBox(width: isMobile ? 3 : 4),
+          Container(
+            padding: EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icono, color: color, size: 16),
+          ),
+          SizedBox(width: 8),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  titulo,
-                  style: CorporateTheme.caption.copyWith(
+                  valor,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
                     color: color,
-                    fontSize: isMobile ? 9 : 10,
+                    fontSize: 16,
+                  ),
+                ),
+                Text(
+                  titulo,
+                  style: TextStyle(
+                    color: color.withOpacity(0.8),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  valor,
-                  style: CorporateTheme.bodyMedium.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                    fontSize: isMobile ? 12 : 14,
-                  ),
                 ),
               ],
             ),
@@ -382,43 +423,20 @@ class _InventarioModuleState extends State<InventarioModule> {
 
   Widget _buildFiltrosSection() {
     return Container(
-      padding: EdgeInsets.all(isMobile ? 8 : 12),
+      padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 6,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        color: CorporateTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
-          // Icono y título compactos
-          Container(
-            padding: EdgeInsets.all(6),
-            decoration: BoxDecoration(
-              color: CorporateTheme.primaryBlue.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Icon(
-              Icons.filter_list,
-              color: CorporateTheme.primaryBlue,
-              size: 16,
-            ),
+          // Icono
+          Icon(
+            Icons.search_rounded,
+            color: CorporateTheme.textSecondary,
+            size: 20,
           ),
-          SizedBox(width: 8),
-          Text(
-            'Filtros:',
-            style: CorporateTheme.caption.copyWith(
-              fontWeight: FontWeight.bold,
-              color: CorporateTheme.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-          SizedBox(width: 12),
+          SizedBox(width: 10),
           // Campo de búsqueda y filtros horizontales compactos
           Expanded(
             child: Row(
@@ -436,59 +454,67 @@ class _InventarioModuleState extends State<InventarioModule> {
                         prefixIcon: Icon(Icons.search, size: 16, color: Colors.grey.shade600),
                         suffixIcon: _textoBusqueda.isNotEmpty 
                           ? IconButton(
-                              icon: Icon(Icons.clear, size: 14),
+                              icon: Icon(Icons.close, size: 16, color: CorporateTheme.textSecondary),
                               onPressed: () {
                                 _searchController.clear();
                               },
                               padding: EdgeInsets.zero,
-                              constraints: BoxConstraints(minWidth: 20, minHeight: 20),
+                              constraints: BoxConstraints(minWidth: 24, minHeight: 24),
                             )
                           : null,
                         border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
                         ),
                         enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: Colors.grey.shade300, width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none,
                         ),
                         focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(16),
-                          borderSide: BorderSide(color: CorporateTheme.primaryBlue, width: 1),
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: CorporateTheme.primaryBlue, width: 1.5),
                         ),
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       ),
-                      style: TextStyle(fontSize: 12),
+                      style: TextStyle(fontSize: 13, color: CorporateTheme.textPrimary),
                     ),
                   ),
                 ),
-                SizedBox(width: 12),
+                SizedBox(width: 10),
                 Expanded(
                   flex: 2,
                   child: _buildFiltroDropdown('Estado', _filtroEstado, 
                     ['Todos', ...InventarioService.obtenerEstadosDisponibles()], 
                     (value) => setState(() => _filtroEstado = value ?? 'Todos')),
                 ),
-                SizedBox(width: 12),
+                SizedBox(width: 10),
                 Expanded(
                   flex: 2,
                   child: _buildFiltroDropdown('Marca', _filtroMarca, _marcas, 
                     (value) => setState(() => _filtroMarca = value ?? 'Todas')),
                 ),
-                SizedBox(width: 8),
+                SizedBox(width: 6),
                 // Botón de limpiar filtros
-                IconButton(
-                  onPressed: () {
-                    setState(() {
-                      _filtroEstado = 'Todos';
-                      _filtroMarca = 'Todas';
-                      _searchController.clear();
-                    });
-                  },
-                  icon: Icon(Icons.clear_all, size: 16),
-                  tooltip: 'Limpiar filtros y búsqueda',
-                  constraints: BoxConstraints(minWidth: 24, minHeight: 24),
-                  padding: EdgeInsets.all(4),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _filtroEstado = 'Todos';
+                        _filtroMarca = 'Todas';
+                        _searchController.clear();
+                      });
+                    },
+                    icon: Icon(Icons.refresh, size: 18, color: CorporateTheme.textSecondary),
+                    tooltip: 'Limpiar filtros',
+                    constraints: BoxConstraints(minWidth: 36, minHeight: 36),
+                    padding: EdgeInsets.zero,
+                  ),
                 ),
               ],
             ),
@@ -499,24 +525,27 @@ class _InventarioModuleState extends State<InventarioModule> {
   }
 
   Widget _buildFiltroDropdown(String label, String value, List<String> items, Function(String?) onChanged) {
-    return DropdownButtonFormField<String>(
-      value: value,
-      isDense: true,
-      decoration: InputDecoration(
-        labelText: label,
-        border: const OutlineInputBorder(),
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 8, 
-          vertical: 4
-        ),
-        labelStyle: TextStyle(fontSize: 11),
+    return Container(
+      height: 36,
+      padding: EdgeInsets.symmetric(horizontal: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
       ),
-      style: TextStyle(fontSize: 12, color: Colors.black87),
-      items: items.map((item) => DropdownMenuItem(
-        value: item,
-        child: Text(item, style: TextStyle(fontSize: 12)),
-      )).toList(),
-      onChanged: onChanged,
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isDense: true,
+          isExpanded: true,
+          icon: Icon(Icons.keyboard_arrow_down, size: 18, color: CorporateTheme.textSecondary),
+          style: TextStyle(fontSize: 12, color: CorporateTheme.textPrimary),
+          items: items.map((item) => DropdownMenuItem(
+            value: item,
+            child: Text(item, overflow: TextOverflow.ellipsis),
+          )).toList(),
+          onChanged: onChanged,
+        ),
+      ),
     );
   }
 
@@ -531,13 +560,7 @@ class _InventarioModuleState extends State<InventarioModule> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: CorporateTheme.dividerColor.withOpacity(0.5)),
       ),
       child: isMobile ? 
         // Vista de lista para móvil (no tabla)
@@ -617,142 +640,146 @@ class _InventarioModuleState extends State<InventarioModule> {
 
   Widget _buildMobileListItem(Map<String, dynamic> vehiculo, int index) {
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: responsivePadding, vertical: 6),
+      margin: EdgeInsets.symmetric(horizontal: responsivePadding, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(color: CorporateTheme.dividerColor.withOpacity(0.5)),
       ),
-      child: InkWell(
-        onTap: () => _editarVehiculo(vehiculo),
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Cabecera con título y estado
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Icono de vehículo
-                  Container(
-                    padding: EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: CorporateTheme.primaryBlue.withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.directions_car,
-                      color: CorporateTheme.primaryBlue,
-                      size: 20,
-                    ),
-                  ),
-                  SizedBox(width: 12),
-                  // Información principal
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${vehiculo['ano']} ${vehiculo['marca']} ${vehiculo['modelo']}',
-                          style: CorporateTheme.bodyLarge.copyWith(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: CorporateTheme.textPrimary,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          '${vehiculo['color'] ?? 'N/A'} • Motor: ${vehiculo['motor'] ?? 'N/A'}',
-                          style: CorporateTheme.caption.copyWith(
-                            color: CorporateTheme.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Estado
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: _getEstadoColor(_getEstadoNormalizado(vehiculo)),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      _getEstadoNormalizado(vehiculo),
-                      style: CorporateTheme.caption.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _editarVehiculo(vehiculo),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Cabecera con título y estado
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Icono de vehículo
+                    Container(
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: CorporateTheme.surfaceColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.directions_car_rounded,
+                        color: CorporateTheme.primaryBlue,
+                        size: 22,
                       ),
                     ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 16),
-              // Información secundaria en cards pequeñas
-              Row(
-                children: [
-                  _buildInfoCard('VIN', vehiculo['vin']?.toString() ?? 'N/A', Icons.confirmation_number),
-                  SizedBox(width: 12),
-                  _buildInfoCard('Días', '${vehiculo['diasInventario'] ?? 0}', Icons.calendar_today),
-                  Spacer(),
-                  // Precios en columna (solo para admin)
-                  if (_canViewFinancialInfo) Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      // Precio destacado
+                    SizedBox(width: 12),
+                    // Información principal
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${vehiculo['ano']} ${vehiculo['marca']} ${vehiculo['modelo']}',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: CorporateTheme.textPrimary,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            '${vehiculo['color'] ?? 'N/A'} • ${vehiculo['motor'] ?? 'N/A'}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: CorporateTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Estado
+                    _buildEstadoChip(_getEstadoNormalizado(vehiculo)),
+                  ],
+                ),
+                SizedBox(height: 12),
+                // Información secundaria
+                Row(
+                  children: [
+                    _buildInfoChip(vehiculo['vin']?.toString() ?? 'N/A', Icons.tag),
+                    SizedBox(width: 8),
+                    _buildInfoChip('${vehiculo['diasInventario'] ?? 0} días', Icons.schedule),
+                    Spacer(),
+                    // Precios (solo para admin)
+                    if (_canViewFinancialInfo) ...[
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                         decoration: BoxDecoration(
                           color: Colors.green.shade50,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.shade200),
                         ),
                         child: Text(
                           '\$${(vehiculo['total']?.toDouble() ?? 0).toStringAsFixed(0)}',
-                          style: CorporateTheme.bodyLarge.copyWith(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
                             color: Colors.green.shade700,
                           ),
                         ),
                       ),
-                      SizedBox(height: 4),
-                      // Gastos calculados
-                      Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: Text(
-                          'Gastos: \$${(_gastosCalculados[vehiculo['vin']] ?? 0.0).toStringAsFixed(0)}',
-                          style: CorporateTheme.caption.copyWith(
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red.shade700,
-                          ),
-                        ),
-                      ),
                     ],
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildEstadoChip(String estado) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: _getEstadoColor(estado).withOpacity(0.15),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        estado,
+        style: TextStyle(
+          color: _getEstadoColor(estado),
+          fontWeight: FontWeight.w600,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoChip(String text, IconData icon) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: CorporateTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: CorporateTheme.textSecondary),
+          SizedBox(width: 4),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 11,
+              color: CorporateTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1221,27 +1248,17 @@ class _InventarioModuleState extends State<InventarioModule> {
 
     if (confirmed == true) {
       try {
-        final result = await InventarioService.eliminarVehiculo(
-          vehiculo['id'].toString(),
-        );
+        // Usar SyncService para eliminar (Firestore + sincronizar con Sheets)
+        await SyncService.eliminarVehiculo(vehiculo['docId']?.toString() ?? vehiculo['id'].toString());
 
         if (mounted) {
-          if (result['success'] == true) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Vehículo eliminado exitosamente'),
-                backgroundColor: Colors.green,
-              ),
-            );
-            _cargarDatos();
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(result['error'] ?? 'Error al eliminar vehículo'),
-                backgroundColor: Colors.red,
-              ),
-            );
-          }
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('✅ Vehículo eliminado exitosamente'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          _cargarDatos();
         }
       } catch (e) {
         if (mounted) {

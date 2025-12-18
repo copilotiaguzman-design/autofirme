@@ -1,5 +1,9 @@
 // Exportación centralizada de servicios
-// Solo Google Sheets (archivos Firebase movidos a temp_firebase_files/)
+// Firebase + Google Sheets (Firestore principal, Sheets respaldo)
+
+// Nuevos servicios Firebase
+export 'firestore_service.dart';
+export 'sync_service.dart';
 
 // Servicios originales (mantener compatibilidad)
 export 'google_sheets_service.dart';

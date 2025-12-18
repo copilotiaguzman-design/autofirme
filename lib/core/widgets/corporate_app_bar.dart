@@ -24,33 +24,32 @@ class CorporateAppBar extends StatelessWidget implements PreferredSizeWidget {
     return Container(
       decoration: BoxDecoration(
         gradient: CorporateTheme.headerGradient,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.15),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        boxShadow: CorporateTheme.headerShadow,
       ),
       child: AppBar(
         title: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-                fontSize: 20,
+            Flexible(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  fontSize: 18,
+                  letterSpacing: -0.3,
+                ),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             if (showLoadingIndicator) ...[
-              const SizedBox(width: CorporateTheme.spacingMD),
+              const SizedBox(width: 12),
               const SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
                 ),
               ),
             ],
@@ -62,11 +61,20 @@ class CorporateAppBar extends StatelessWidget implements PreferredSizeWidget {
         leading: showBackButton
             ? leading ??
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white, size: 20),
                   onPressed: onBackPressed ?? () => _handleBackPress(context),
                 )
             : leading,
-        actions: actions,
+        actions: actions?.map((action) {
+          // Envolver los actions en un contenedor con padding consistente
+          if (action is IconButton) {
+            return action;
+          }
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: action,
+          );
+        }).toList(),
       ),
     );
   }

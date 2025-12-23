@@ -66,7 +66,7 @@ class InventarioService {
     required double gastos,
     required double precioSugerido,
     required String estado,
-    String? imagen,
+    String? imagenesUrl,
     required String nombreUsuario,
     required String correoUsuario,
   }) async {
@@ -92,7 +92,7 @@ class InventarioService {
         'precioSugerido': precioSugerido,
         'total': total,
         'estado': estado,
-        'imagen': imagen ?? '',
+        'imagenesUrl': imagenesUrl ?? '',
         'nombreUsuario': nombreUsuario,
         'correoUsuario': correoUsuario,
       };
@@ -157,7 +157,7 @@ class InventarioService {
     double? gastos,
     double? precioSugerido,
     String? estado,
-    String? imagen,
+    String? imagenesUrl,
     String? nombreUsuario,
     String? correoUsuario,
   }) async {
@@ -179,7 +179,7 @@ class InventarioService {
       if (gastos != null) updateData['gastos'] = gastos;
       if (precioSugerido != null) updateData['precioSugerido'] = precioSugerido;
       if (estado != null) updateData['estado'] = estado;
-      if (imagen != null) updateData['imagen'] = imagen;
+      if (imagenesUrl != null) updateData['imagenesUrl'] = imagenesUrl;
       if (nombreUsuario != null) updateData['nombreUsuario'] = nombreUsuario;
       if (correoUsuario != null) updateData['correoUsuario'] = correoUsuario;
       
@@ -206,7 +206,7 @@ class InventarioService {
       if (gastos != null) queryParams['gastos'] = gastos.toString();
       if (precioSugerido != null) queryParams['precioSugerido'] = precioSugerido.toString();
       if (estado != null) queryParams['estado'] = estado;
-      if (imagen != null) queryParams['imagen'] = imagen;
+      if (imagenesUrl != null) queryParams['imagenesUrl'] = imagenesUrl;
       if (nombreUsuario != null) queryParams['nombreUsuario'] = nombreUsuario;
       if (correoUsuario != null) queryParams['correoUsuario'] = correoUsuario;
 
@@ -373,7 +373,7 @@ class InventarioService {
       'diasInventario': _calcularDiasInventario(raw['fechaRecibido']?.toString() ?? ''),
       // Corregir el mapeo del estado - parece estar en nombreUsuario por error en los datos
       'estado': _determinarEstado(raw),
-      'imagen': raw['correoUsuario'] ?? '', // Las imágenes parecen estar en correoUsuario
+      'imagenesUrl': raw['imagenesUrl'] ?? raw['correoUsuario'] ?? '',
       'nombreUsuario': raw['fechaCreacion'] ?? '',
       'correoUsuario': raw['fechaActualizacion'] ?? '',
       'fechaCreacion': raw['fechaCreacion'] ?? '',

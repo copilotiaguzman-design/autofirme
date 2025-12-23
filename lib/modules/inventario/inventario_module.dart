@@ -4,6 +4,8 @@ import '../../services/inventario_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/gastos_calculados_service.dart';
 import '../../services/auth_service.dart';
+import '../../services/import_export_service.dart';
+import '../../widgets/vehiculo_imagenes.dart';
 import 'vehiculo_form_screen.dart';
 
 class InventarioModule extends StatefulWidget {
@@ -252,6 +254,57 @@ class _InventarioModuleState extends State<InventarioModule> {
       appBar: CorporateAppBar(
         title: 'Inventario de Vehículos',
         actions: [
+          // Botón de menú de importación/exportación
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'Más opciones',
+            onSelected: (value) async {
+              switch (value) {
+                case 'importar':
+                  await _importarDesdeArchivo();
+                  break;
+                case 'exportar':
+                  await _exportarInventario();
+                  break;
+                case 'plantilla':
+                  await _descargarPlantilla();
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'importar',
+                child: Row(
+                  children: [
+                    Icon(Icons.upload_file, color: Colors.blue),
+                    SizedBox(width: 12),
+                    Text('Importar CSV'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'exportar',
+                child: Row(
+                  children: [
+                    Icon(Icons.download, color: Colors.green),
+                    SizedBox(width: 12),
+                    Text('Exportar CSV'),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(),
+              const PopupMenuItem(
+                value: 'plantilla',
+                child: Row(
+                  children: [
+                    Icon(Icons.description, color: Colors.orange),
+                    SizedBox(width: 12),
+                    Text('Descargar Plantilla'),
+                  ],
+                ),
+              ),
+            ],
+          ),
           IconButton(
             icon: Icon(_vistaTabla ? Icons.view_module : Icons.table_rows),
             onPressed: () {
@@ -639,6 +692,8 @@ class _InventarioModuleState extends State<InventarioModule> {
   }
 
   Widget _buildMobileListItem(Map<String, dynamic> vehiculo, int index) {
+    final tieneImagenes = vehiculo['imagenesUrl']?.toString().isNotEmpty == true;
+    
     return Container(
       margin: EdgeInsets.symmetric(horizontal: responsivePadding, vertical: 4),
       decoration: BoxDecoration(
@@ -660,19 +715,24 @@ class _InventarioModuleState extends State<InventarioModule> {
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Icono de vehículo
-                    Container(
-                      padding: EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: CorporateTheme.surfaceColor,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.directions_car_rounded,
-                        color: CorporateTheme.primaryBlue,
-                        size: 22,
-                      ),
-                    ),
+                    // Imagen o icono de vehículo
+                    tieneImagenes
+                        ? VehiculoImagenMiniatura(
+                            imagenesUrl: vehiculo['imagenesUrl'],
+                            size: 50,
+                          )
+                        : Container(
+                            padding: EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: CorporateTheme.surfaceColor,
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Icon(
+                              Icons.directions_car_rounded,
+                              color: CorporateTheme.primaryBlue,
+                              size: 22,
+                            ),
+                          ),
                     SizedBox(width: 12),
                     // Información principal
                     Expanded(
@@ -883,6 +943,8 @@ class _InventarioModuleState extends State<InventarioModule> {
   }
 
   Widget _buildTableRow(Map<String, dynamic> vehiculo, int index) {
+    final tieneImagenes = vehiculo['imagenesUrl']?.toString().isNotEmpty == true;
+    
     return Container(
       padding: EdgeInsets.all(responsivePadding * 0.75),
       decoration: BoxDecoration(
@@ -895,6 +957,29 @@ class _InventarioModuleState extends State<InventarioModule> {
         onTap: () => _editarVehiculo(vehiculo),
         child: Row(
           children: [
+            // Miniatura de imagen
+            SizedBox(
+              width: 45,
+              child: tieneImagenes
+                  ? VehiculoImagenMiniatura(
+                      imagenesUrl: vehiculo['imagenesUrl'],
+                      size: 40,
+                    )
+                  : Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.directions_car,
+                        size: 20,
+                        color: Colors.grey.shade400,
+                      ),
+                    ),
+            ),
+            SizedBox(width: 12),
             Expanded(
               flex: 3,
               child: Column(
@@ -1025,6 +1110,8 @@ class _InventarioModuleState extends State<InventarioModule> {
   }
 
   Widget _buildVehiculoCardGaleria(Map<String, dynamic> vehiculo) {
+    final tieneImagenes = vehiculo['imagenesUrl']?.toString().isNotEmpty == true;
+    
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1040,142 +1127,119 @@ class _InventarioModuleState extends State<InventarioModule> {
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () => _editarVehiculo(vehiculo),
-        child: Padding(
-          padding: EdgeInsets.all(responsivePadding * 0.75),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      color: _getEstadoColor(_getEstadoNormalizado(vehiculo)).withValues(alpha: 0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Icon(
-                      Icons.directions_car,
-                      color: _getEstadoColor(_getEstadoNormalizado(vehiculo)),
-                      size: isMobile ? 16 : 20,
-                    ),
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: isMobile ? 4 : 6, 
-                      vertical: 2
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getEstadoColor(_getEstadoNormalizado(vehiculo)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _getEstadoNormalizado(vehiculo),
-                      style: CorporateTheme.caption.copyWith(
-                        color: Colors.white,
-                        fontSize: isMobile ? 8 : 10,
-                        fontWeight: FontWeight.bold,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Imagen del vehículo
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              child: SizedBox(
+                height: isMobile ? 100 : 120,
+                width: double.infinity,
+                child: tieneImagenes
+                    ? VehiculoImagenes(
+                        imagenesUrl: vehiculo['imagenesUrl'],
+                        height: isMobile ? 100 : 120,
+                        borderRadius: BorderRadius.zero,
+                        mostrarBotonAbrir: false,
+                        compacto: true,
+                      )
+                    : Container(
+                        color: Colors.grey.shade100,
+                        child: Icon(
+                          Icons.directions_car,
+                          size: isMobile ? 32 : 40,
+                          color: Colors.grey.shade400,
+                        ),
                       ),
-                    ),
-                  ),
-                ],
               ),
-              SizedBox(height: responsiveSpacing * 0.5),
-              Text(
-                '${vehiculo['ano']} ${vehiculo['marca']}',
-                style: CorporateTheme.bodyMedium.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: isMobile ? 12 : 14,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              Text(
-                vehiculo['modelo'] ?? '',
-                style: CorporateTheme.caption.copyWith(
-                  color: CorporateTheme.textSecondary,
-                  fontSize: isMobile ? 10 : 12,
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-              if (!isMobile) ...[
-                SizedBox(height: responsiveSpacing * 0.25),
-                Text(
-                  '${vehiculo['color']} • ${vehiculo['version'] ?? 'N/A'}',
-                  style: CorporateTheme.caption.copyWith(
-                    color: CorporateTheme.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              const Spacer(),
-              if (!isMobile) ...[
-                Row(
+            ),
+            // Información del vehículo
+            Expanded(
+              child: Padding(
+                padding: EdgeInsets.all(responsivePadding * 0.5),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'VIN: ${_truncateVin(vehiculo['vin'])}',
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            '${vehiculo['ano']} ${vehiculo['marca']}',
+                            style: CorporateTheme.bodyMedium.copyWith(
+                              fontWeight: FontWeight.bold,
+                              fontSize: isMobile ? 11 : 13,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 4, 
+                            vertical: 2
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getEstadoColor(_getEstadoNormalizado(vehiculo)),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            _getEstadoNormalizado(vehiculo),
                             style: CorporateTheme.caption.copyWith(
-                              color: CorporateTheme.textSecondary,
+                              color: Colors.white,
+                              fontSize: 8,
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                          Text(
-                            'Días: ${vehiculo['diasInventario'] ?? 0}',
-                            style: CorporateTheme.caption.copyWith(
-                              color: CorporateTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 2),
+                    Text(
+                      vehiculo['modelo'] ?? '',
+                      style: CorporateTheme.caption.copyWith(
+                        color: CorporateTheme.textSecondary,
+                        fontSize: isMobile ? 10 : 11,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      '${vehiculo['color']} • ${vehiculo['version'] ?? 'N/A'}',
+                      style: CorporateTheme.caption.copyWith(
+                        color: CorporateTheme.textSecondary,
+                        fontSize: 9,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
+                    if (_canViewFinancialInfo)
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '\$${(vehiculo['precioSugerido'] ?? 0).toStringAsFixed(0)}',
+                          style: CorporateTheme.caption.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade700,
+                            fontSize: 11,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
                   ],
                 ),
-                SizedBox(height: responsiveSpacing * 0.5),
-              ],
-              if (_canViewFinancialInfo) ...[
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: isMobile ? 6 : 8),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    '\$${(vehiculo['total']?.toDouble() ?? 0).toStringAsFixed(0)}',
-                    style: CorporateTheme.bodyMedium.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green.shade700,
-                      fontSize: isMobile ? 12 : 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-                SizedBox(height: responsiveSpacing * 0.25),
-                Container(
-                  width: double.infinity,
-                  padding: EdgeInsets.symmetric(vertical: isMobile ? 4 : 6),
-                  decoration: BoxDecoration(
-                    color: Colors.red.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'Gastos: \$${(_gastosCalculados[vehiculo['vin']] ?? 0.0).toStringAsFixed(0)}',
-                    style: CorporateTheme.caption.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.red.shade700,
-                      fontSize: isMobile ? 10 : 12,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ],
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1269,6 +1333,298 @@ class _InventarioModuleState extends State<InventarioModule> {
             ),
           );
         }
+      }
+    }
+  }
+
+  /// Importar vehículos desde archivo CSV
+  Future<void> _importarDesdeArchivo() async {
+    try {
+      final result = await ImportExportService.importarDesdeArchivo();
+      
+      if (!mounted) return;
+
+      if (!result.success && result.vehiculos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.mensaje),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+        return;
+      }
+
+      // Mostrar diálogo de confirmación con preview
+      final confirmed = await _mostrarDialogoImportacion(result);
+      
+      if (confirmed == true && mounted) {
+        await _procesarImportacion(result.vehiculos);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al importar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Muestra diálogo de confirmación para la importación
+  Future<bool?> _mostrarDialogoImportacion(ImportResult result) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.upload_file, color: CorporateTheme.primaryBlue),
+            const SizedBox(width: 12),
+            const Text('Confirmar Importación'),
+          ],
+        ),
+        content: SizedBox(
+          width: 500,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle, color: Colors.green),
+                    const SizedBox(width: 12),
+                    Text(
+                      '${result.vehiculos.length} vehículos listos para importar',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                  ],
+                ),
+              ),
+              
+              if (result.errores.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          const Icon(Icons.warning, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          Text(
+                            '${result.errores.length} errores encontrados:',
+                            style: const TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        height: 100,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: result.errores.length > 5 ? 5 : result.errores.length,
+                          itemBuilder: (context, index) => Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Text(
+                              '• ${result.errores[index]}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.orange.shade800,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (result.errores.length > 5)
+                        Text(
+                          '... y ${result.errores.length - 5} errores más',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.orange.shade700,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+              
+              const SizedBox(height: 16),
+              const Text(
+                'Vista previa de vehículos:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 150,
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: result.vehiculos.length > 5 ? 5 : result.vehiculos.length,
+                  itemBuilder: (context, index) {
+                    final v = result.vehiculos[index];
+                    return Card(
+                      child: ListTile(
+                        dense: true,
+                        leading: const Icon(Icons.directions_car, size: 20),
+                        title: Text(
+                          '${v['ano']} ${v['marca']} ${v['modelo']}',
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                        subtitle: Text(
+                          'VIN: ${v['vin']} • ${v['color']}',
+                          style: const TextStyle(fontSize: 11),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              if (result.vehiculos.length > 5)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    '... y ${result.vehiculos.length - 5} vehículos más',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pop(context, true),
+            icon: const Icon(Icons.upload, size: 18),
+            label: Text('Importar ${result.vehiculos.length} vehículos'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: CorporateTheme.primaryBlue,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Procesa la importación de vehículos
+  Future<void> _procesarImportacion(List<Map<String, dynamic>> vehiculos) async {
+    setState(() => _isLoading = true);
+    
+    int exitosos = 0;
+    int fallidos = 0;
+    final authService = AuthService();
+    final userEmail = authService.userEmail;
+    
+    for (var vehiculo in vehiculos) {
+      try {
+        // Agregar información del usuario
+        vehiculo['nombreUsuario'] = 'Importación CSV';
+        vehiculo['correoUsuario'] = userEmail;
+        
+        await SyncService.agregarVehiculo(vehiculo);
+        exitosos++;
+      } catch (e) {
+        print('Error al importar vehículo: $e');
+        fallidos++;
+      }
+    }
+    
+    setState(() => _isLoading = false);
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            fallidos == 0 
+              ? '✅ Se importaron $exitosos vehículos exitosamente'
+              : '⚠️ Importados: $exitosos, Fallidos: $fallidos',
+          ),
+          backgroundColor: fallidos == 0 ? Colors.green : Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      
+      // Recargar datos
+      _cargarDatos();
+    }
+  }
+
+  /// Exportar inventario a CSV
+  Future<void> _exportarInventario() async {
+    try {
+      if (_vehiculos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No hay vehículos para exportar'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+        return;
+      }
+
+      await ImportExportService.exportarInventarioCSV(_vehiculos);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Se exportaron ${_vehiculos.length} vehículos'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al exportar: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Descargar plantilla CSV
+  Future<void> _descargarPlantilla() async {
+    try {
+      await ImportExportService.descargarPlantillaCSV();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Plantilla descargada'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al descargar plantilla: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       }
     }
   }

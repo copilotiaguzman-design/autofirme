@@ -5,6 +5,7 @@ import '../../core/exports.dart';
 import '../../services/inventario_service.dart';
 import '../../services/sync_service.dart';
 import '../../services/auth_service.dart';
+import '../../widgets/vehiculo_imagenes.dart';
 
 class VehiculoFormScreen extends StatefulWidget {
   final Map<String, dynamic>? vehiculo;
@@ -35,7 +36,7 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
   final _costoController = TextEditingController();
   final _gastosController = TextEditingController();
   final _precioSugeridoController = TextEditingController();
-  final _imagenController = TextEditingController();
+  final _imagenesUrlController = TextEditingController();
   
   String _estado = 'Disponible';
   bool _isLoading = false;
@@ -70,7 +71,15 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
       _costoController.text = vehiculo['costo']?.toString() ?? '';
       _gastosController.text = vehiculo['gastos']?.toString() ?? '';
       _precioSugeridoController.text = vehiculo['precioSugerido']?.toString() ?? '';
-      _imagenController.text = vehiculo['imagen']?.toString() ?? '';
+      // Combinar imagen e imagenesUrl si existen ambos
+      String imagenes = vehiculo['imagenesUrl']?.toString() ?? '';
+      String imagenPrincipal = vehiculo['imagen']?.toString() ?? '';
+      if (imagenPrincipal.isNotEmpty && imagenes.isEmpty) {
+        imagenes = imagenPrincipal;
+      } else if (imagenPrincipal.isNotEmpty && imagenes.isNotEmpty) {
+        imagenes = '$imagenPrincipal,$imagenes';
+      }
+      _imagenesUrlController.text = imagenes;
       _estado = vehiculo['estado']?.toString() ?? 'Disponible';
       _calcularTotal();
     }
@@ -500,9 +509,11 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
   }
 
   Widget _buildHeaderSection() {
+    final tieneImagenes = widget.isEditing && 
+        _imagenesUrlController.text.isNotEmpty;
+    
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(CorporateTheme.spacingLG),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -516,44 +527,67 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
       ),
       child: Column(
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  const Color(0xFF3B82F6).withOpacity(0.1),
-                  const Color(0xFF3B82F6).withOpacity(0.2),
-                ],
+          // Mostrar galería de imágenes si existe
+          if (tieneImagenes) ...[
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
               ),
-              borderRadius: BorderRadius.circular(40),
+              child: VehiculoImagenes(
+                imagenesUrl: _imagenesUrlController.text,
+                height: 180,
+                borderRadius: BorderRadius.zero,
+              ),
             ),
-            child: Icon(
-              widget.isEditing ? Icons.edit : Icons.directions_car,
-              size: 40,
-              color: const Color(0xFF3B82F6),
+          ],
+          Padding(
+            padding: const EdgeInsets.all(CorporateTheme.spacingLG),
+            child: Column(
+              children: [
+                if (!tieneImagenes) ...[
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          const Color(0xFF3B82F6).withOpacity(0.1),
+                          const Color(0xFF3B82F6).withOpacity(0.2),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(40),
+                    ),
+                    child: Icon(
+                      widget.isEditing ? Icons.edit : Icons.directions_car,
+                      size: 40,
+                      color: const Color(0xFF3B82F6),
+                    ),
+                  ),
+                  const SizedBox(height: CorporateTheme.spacingMD),
+                ],
+                Text(
+                  widget.isEditing ? 'Actualizar Vehículo' : 'Registrar Nuevo Vehículo',
+                  style: CorporateTheme.bodyLarge.copyWith(
+                    fontSize: tieneImagenes ? 20 : 24,
+                    fontWeight: FontWeight.bold,
+                    color: CorporateTheme.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: CorporateTheme.spacingSM),
+                Text(
+                  widget.isEditing 
+                    ? 'Modifica la información del vehículo'
+                    : 'Completa todos los datos del vehículo',
+                  style: CorporateTheme.bodyMedium.copyWith(
+                    color: CorporateTheme.textSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
-          ),
-          const SizedBox(height: CorporateTheme.spacingMD),
-          Text(
-            widget.isEditing ? 'Actualizar Vehículo' : 'Registrar Nuevo Vehículo',
-            style: CorporateTheme.bodyLarge.copyWith(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: CorporateTheme.textPrimary,
-            ),
-          ),
-          const SizedBox(height: CorporateTheme.spacingSM),
-          Text(
-            widget.isEditing 
-              ? 'Modifica la información del vehículo'
-              : 'Completa todos los datos del vehículo',
-            style: CorporateTheme.bodyMedium.copyWith(
-              color: CorporateTheme.textSecondary,
-            ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -810,10 +844,10 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
           const SizedBox(height: CorporateTheme.spacingLG),
           
           CorporateInput(
-            label: 'URL de Imagen (opcional)',
-            hint: 'https://ejemplo.com/vehiculo.jpg',
-            controller: _imagenController,
-            prefixIcon: Icons.image,
+            label: 'URL de Imágenes (opcional)',
+            hint: 'https://drive.google.com/drive/folders/...',
+            controller: _imagenesUrlController,
+            prefixIcon: Icons.photo_library,
           ),
         ],
       ),
@@ -1121,7 +1155,7 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
         'gastos': gastos,
         'precioSugerido': precioSugerido,
         'estado': _estado,
-        'imagen': _imagenController.text.trim().isNotEmpty ? _imagenController.text.trim() : '',
+        'imagenesUrl': _imagenesUrlController.text.trim().isNotEmpty ? _imagenesUrlController.text.trim() : '',
         'nombreUsuario': userName,
         'correoUsuario': userEmail,
         // Incluir el ID de Sheets para sincronización
@@ -1179,7 +1213,7 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
     _costoController.dispose();
     _gastosController.dispose();
     _precioSugeridoController.dispose();
-    _imagenController.dispose();
+    _imagenesUrlController.dispose();
     super.dispose();
   }
 }

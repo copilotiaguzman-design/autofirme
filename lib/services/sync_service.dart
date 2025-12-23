@@ -408,7 +408,7 @@ class SyncService {
         gastos: double.tryParse(datos['gastos']?.toString() ?? '0'),
         precioSugerido: double.tryParse(datos['precioSugerido']?.toString() ?? '0'),
         estado: datos['estado']?.toString(),
-        imagen: datos['imagen']?.toString(),
+        imagenesUrl: datos['imagenesUrl']?.toString(),
       );
       
       print('✅ [SYNC] Vehículo $id sincronizado con Sheets');
@@ -437,7 +437,7 @@ class SyncService {
         gastos: double.tryParse(datos['gastos']?.toString() ?? '0') ?? 0,
         precioSugerido: double.tryParse(datos['precioSugerido']?.toString() ?? '0') ?? 0,
         estado: datos['estado']?.toString() ?? 'Disponible',
-        imagen: datos['imagen']?.toString() ?? '',
+        imagenesUrl: datos['imagenesUrl']?.toString() ?? '',
         nombreUsuario: datos['nombreUsuario']?.toString() ?? '',
         correoUsuario: datos['correoUsuario']?.toString() ?? '',
       );
@@ -493,7 +493,7 @@ class SyncService {
             gastos: double.tryParse(vehiculo['gastos']?.toString() ?? '0'),
             precioSugerido: double.tryParse(vehiculo['precioSugerido']?.toString() ?? '0'),
             estado: vehiculo['estado']?.toString(),
-            imagen: vehiculo['imagen']?.toString(),
+            imagenesUrl: vehiculo['imagenesUrl']?.toString(),
           );
         } catch (e) {
           print('⚠️ [SYNC] Error sincronizando vehículo ${vehiculo['id']}: $e');

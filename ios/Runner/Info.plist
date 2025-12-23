@@ -47,5 +47,9 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>AutoFirme necesita acceso a tu biblioteca de fotos para seleccionar y subir imágenes de los vehículos del inventario.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>AutoFirme necesita acceso a la cámara para tomar fotos de los vehículos del inventario.</string>
 </dict>
 </plist>

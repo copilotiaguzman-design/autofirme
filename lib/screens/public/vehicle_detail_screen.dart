@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/corporate_theme.dart';
+import '../../widgets/vehiculo_imagenes.dart';
 
 class VehicleDetailScreen extends StatefulWidget {
   final Map<String, dynamic> vehicle;
@@ -16,7 +17,25 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   int _currentImageIndex = 0;
   final PageController _pageController = PageController();
 
+  /// Helper para convertir imagenesUrl a List<String>
+  List<String> _obtenerImagenesComoLista() {
+    final imagenesUrl = widget.vehicle['imagenesUrl'];
+    if (imagenesUrl == null) return [];
+    if (imagenesUrl is List) {
+      return imagenesUrl.map((e) => e.toString()).toList();
+    }
+    if (imagenesUrl is String && imagenesUrl.isNotEmpty) {
+      return [imagenesUrl];
+    }
+    return [];
+  }
+
   List<String> get _images {
+    // Primero intentar con imagenesUrl (formato nuevo)
+    final imagenesUrlList = _obtenerImagenesComoLista();
+    if (imagenesUrlList.isNotEmpty) return imagenesUrlList;
+    
+    // Fallback al formato antiguo
     final imagenes = widget.vehicle['imagenes']?.toString() ?? 
                      widget.vehicle['imagen']?.toString() ?? '';
     if (imagenes.isEmpty) return [];
@@ -28,7 +47,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     final marca = widget.vehicle['marca'] ?? 'Sin marca';
     final modelo = widget.vehicle['modelo'] ?? 'Sin modelo';
     final anio = widget.vehicle['anio'] ?? widget.vehicle['ano'] ?? '';
-    final precio = widget.vehicle['precio'] ?? widget.vehicle['precioVenta'] ?? '0';
+    final precio = widget.vehicle['precioSugerido'] ?? widget.vehicle['precio'] ?? widget.vehicle['precioVenta'] ?? 0;
     final color = widget.vehicle['color'] ?? '';
     final kilometraje = widget.vehicle['kilometraje'] ?? '';
     final transmision = widget.vehicle['transmision'] ?? '';
@@ -111,7 +130,9 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   }
 
   Widget _buildImageGallery() {
-    if (_images.isEmpty) {
+    final imagenes = _obtenerImagenesComoLista();
+    
+    if (imagenes.isEmpty) {
       return Container(
         color: Colors.grey[200],
         child: Center(
@@ -130,65 +151,11 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
       );
     }
 
-    return Stack(
-      children: [
-        PageView.builder(
-          controller: _pageController,
-          itemCount: _images.length,
-          onPageChanged: (index) {
-            setState(() => _currentImageIndex = index);
-          },
-          itemBuilder: (context, index) {
-            return Image.network(
-              _images[index],
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: Colors.grey[200],
-                child: Icon(Icons.broken_image, size: 50, color: Colors.grey[400]),
-              ),
-            );
-          },
-        ),
-        if (_images.length > 1)
-          Positioned(
-            bottom: 20,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _images.length,
-                (index) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: _currentImageIndex == index ? 24 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: _currentImageIndex == index 
-                      ? CorporateTheme.primaryBlue 
-                      : Colors.white.withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        if (_images.length > 1)
-          Positioned(
-            top: 100,
-            right: 20,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: Colors.black54,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Text(
-                '${_currentImageIndex + 1}/${_images.length}',
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-              ),
-            ),
-          ),
-      ],
+    // Usar VehiculoImagenes para manejar URLs de Google Drive (incluyendo carpetas)
+    return VehiculoImagenes(
+      imagenesUrl: imagenes,
+      height: 300,
+      showControls: true,
     );
   }
 

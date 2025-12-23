@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../theme/corporate_theme.dart';
 import '../../services/sync_service.dart';
+import '../../widgets/vehiculo_imagenes.dart';
 import 'vehicle_detail_screen.dart';
 import '../login_screen.dart';
 
@@ -19,7 +20,20 @@ class _CatalogScreenState extends State<CatalogScreen> {
   String _selectedFilter = 'Todos';
   final TextEditingController _searchController = TextEditingController();
 
-  final List<String> _filters = ['Todos', 'Sedan', 'SUV', 'Pickup', 'Deportivo', 'Compacto'];
+  List<String> _marcas = ['Todos'];
+
+  /// Convierte el campo imagenesUrl (que puede ser String o List) a List<String>
+  List<String> _obtenerImagenesComoLista(Map<String, dynamic> vehiculo) {
+    final imagenes = vehiculo['imagenesUrl'];
+    if (imagenes == null) return [];
+    if (imagenes is List) {
+      return imagenes.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+    }
+    if (imagenes is String && imagenes.isNotEmpty) {
+      return imagenes.split(RegExp(r'[,\n]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    }
+    return [];
+  }
 
   @override
   void initState() {
@@ -36,6 +50,17 @@ class _CatalogScreenState extends State<CatalogScreen> {
           v['estado']?.toString().toLowerCase() == 'disponible'
         ).toList();
         _filteredVehicles = _vehicles;
+        
+        // Extraer marcas únicas
+        final marcasSet = <String>{'Todos'};
+        for (final v in _vehicles) {
+          final marca = v['marca']?.toString().trim();
+          if (marca != null && marca.isNotEmpty) {
+            marcasSet.add(marca);
+          }
+        }
+        _marcas = marcasSet.toList();
+        
         _isLoading = false;
       });
     } catch (e) {
@@ -61,7 +86,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                              tipo.contains(searchLower);
         
         final matchesFilter = _selectedFilter == 'Todos' || 
-                             tipo.toLowerCase() == _selectedFilter.toLowerCase();
+                             vehicle['marca']?.toString() == _selectedFilter;
         
         return matchesSearch && matchesFilter;
       }).toList();
@@ -277,9 +302,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: _filters.length,
+        itemCount: _marcas.length,
         itemBuilder: (context, index) {
-          final filter = _filters[index];
+          final filter = _marcas[index];
           final isSelected = filter == _selectedFilter;
           return GestureDetector(
             onTap: () {
@@ -337,7 +362,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
       sliver: SliverGrid(
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
-          childAspectRatio: 0.75,
+          childAspectRatio: 0.95,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
         ),
@@ -353,8 +378,9 @@ class _CatalogScreenState extends State<CatalogScreen> {
     final marca = vehicle['marca'] ?? 'Sin marca';
     final modelo = vehicle['modelo'] ?? 'Sin modelo';
     final anio = vehicle['anio'] ?? vehicle['ano'] ?? '';
-    final precio = vehicle['precio'] ?? vehicle['precioVenta'] ?? '0';
-    final imagen = vehicle['imagen'] ?? vehicle['imagenes']?.toString().split(',').first ?? '';
+    final precio = vehicle['precioSugerido'] ?? vehicle['precio'] ?? vehicle['precioVenta'] ?? 0;
+    final imagenesUrl = _obtenerImagenesComoLista(vehicle);
+    final tieneImagenes = imagenesUrl.isNotEmpty;
 
     return GestureDetector(
       onTap: () {
@@ -390,11 +416,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  child: imagen.toString().isNotEmpty && imagen.toString().startsWith('http')
-                    ? Image.network(
-                        imagen.toString(),
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
+                  child: tieneImagenes
+                    ? LayoutBuilder(
+                        builder: (context, constraints) {
+                          return VehiculoImagenes(
+                            imagenesUrl: imagenesUrl,
+                            height: constraints.maxHeight,
+                            showControls: false,
+                            allowFullscreen: false,
+                          );
+                        },
                       )
                     : _buildPlaceholderImage(),
                 ),
@@ -403,45 +434,35 @@ class _CatalogScreenState extends State<CatalogScreen> {
             Expanded(
               flex: 2,
               child: Padding(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          marca.toString(),
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: CorporateTheme.textSecondary,
-                          ),
-                        ),
-                        Text(
-                          modelo.toString(),
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: CorporateTheme.textPrimary,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        if (anio.toString().isNotEmpty)
-                          Text(
-                            anio.toString(),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                      ],
+                    Text(
+                      marca.toString(),
+                      style: const TextStyle(
+                        fontSize: 10,
+                        color: CorporateTheme.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    Text(
+                      modelo.toString(),
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: CorporateTheme.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Spacer(),
                     Text(
                       '\$${_formatPrice(precio)}',
                       style: const TextStyle(
-                        fontSize: 16,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
                         color: CorporateTheme.primaryBlue,
                       ),

@@ -750,7 +750,7 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
-              ),
+              ),/* 
               const SizedBox(width: 8),
               Container(
                 height: 48,
@@ -766,7 +766,7 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
                     side: BorderSide(color: CorporateTheme.primaryBlue),
                   ),
                 ),
-              ),
+              ), */
             ],
           ),
           

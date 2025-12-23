@@ -364,26 +364,8 @@ class _VehiculoImagenesState extends State<VehiculoImagenes> {
               );
             },
           ),
-          // Nombre de la imagen si existe
-          if (imagen.nombre != null)
-            Positioned(
-              bottom: 24,
-              left: 8,
-              right: 8,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.black54,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  imagen.nombre!,
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
+          // Nombre de la imagen comentado - no es necesario mostrarlo
+          // ya que muestra nombres de archivo como "FullSizeRender.heic"
         ],
       ),
     );
@@ -598,7 +580,8 @@ enum _TipoImagen {
 }
 
 /// Widget para mostrar una miniatura de imagen del vehículo
-class VehiculoImagenMiniatura extends StatelessWidget {
+/// Ahora es StatefulWidget para poder cargar imágenes de carpetas de Drive
+class VehiculoImagenMiniatura extends StatefulWidget {
   final List<String> imagenesUrl;
   final double size;
   final double borderRadius;
@@ -611,44 +594,132 @@ class VehiculoImagenMiniatura extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    if (imagenesUrl.isEmpty) {
-      return _buildPlaceholder();
+  State<VehiculoImagenMiniatura> createState() => _VehiculoImagenMiniaturaState();
+}
+
+class _VehiculoImagenMiniaturaState extends State<VehiculoImagenMiniatura> {
+  String? _urlImagen;
+  bool _cargando = true;
+  bool _esCarpeta = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _cargarImagen();
+  }
+
+  @override
+  void didUpdateWidget(VehiculoImagenMiniatura oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imagenesUrl != widget.imagenesUrl) {
+      _cargarImagen();
+    }
+  }
+
+  Future<void> _cargarImagen() async {
+    if (!mounted) return;
+    
+    setState(() {
+      _cargando = true;
+      _urlImagen = null;
+      _esCarpeta = false;
+    });
+
+    if (widget.imagenesUrl.isEmpty) {
+      if (mounted) setState(() => _cargando = false);
+      return;
     }
 
-    final primeraUrl = imagenesUrl.first;
+    final primeraUrl = widget.imagenesUrl.first;
     final tipoUrl = GoogleDriveService.detectarTipoUrl(primeraUrl);
 
-    // Determinar URL de imagen a mostrar
-    String? urlImagen;
-    
     switch (tipoUrl) {
       case TipoUrlGoogleDrive.archivoImagen:
         final fileId = GoogleDriveService.extraerFileId(primeraUrl);
         if (fileId != null) {
-          urlImagen = 'https://drive.google.com/thumbnail?id=$fileId&sz=w${size.toInt() * 2}';
+          if (mounted) {
+            setState(() {
+              _urlImagen = 'https://drive.google.com/thumbnail?id=$fileId&sz=w${widget.size.toInt() * 2}';
+              _cargando = false;
+            });
+          }
         }
         break;
+        
       case TipoUrlGoogleDrive.carpeta:
-        // Para carpetas, mostrar ícono de carpeta
-        return _buildFolderIcon();
+        // Intentar cargar la primera imagen de la carpeta
+        try {
+          final imagenes = await GoogleDriveService.obtenerContenidoCarpeta(primeraUrl);
+          if (imagenes.isNotEmpty && mounted) {
+            final primerArchivo = imagenes.first;
+            final fileId = primerArchivo['id'];
+            if (fileId != null) {
+              setState(() {
+                _urlImagen = 'https://drive.google.com/thumbnail?id=$fileId&sz=w${widget.size.toInt() * 2}';
+                _cargando = false;
+              });
+              return;
+            }
+          }
+        } catch (e) {
+          print('Error cargando carpeta para miniatura: $e');
+        }
+        // Si falla, mostrar ícono de carpeta
+        if (mounted) {
+          setState(() {
+            _esCarpeta = true;
+            _cargando = false;
+          });
+        }
+        break;
+        
       case TipoUrlGoogleDrive.noEsGoogleDrive:
       default:
-        urlImagen = primeraUrl;
+        if (mounted) {
+          setState(() {
+            _urlImagen = primeraUrl;
+            _cargando = false;
+          });
+        }
         break;
     }
+  }
 
-    if (urlImagen == null) {
+  @override
+  Widget build(BuildContext context) {
+    if (_cargando) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(widget.borderRadius),
+        child: Container(
+          width: widget.size,
+          height: widget.size,
+          color: Colors.grey[200],
+          child: const Center(
+            child: SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_esCarpeta) {
+      return _buildFolderIcon();
+    }
+
+    if (_urlImagen == null) {
       return _buildPlaceholder();
     }
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: BorderRadius.circular(widget.borderRadius),
       child: SizedBox(
-        width: size,
-        height: size,
+        width: widget.size,
+        height: widget.size,
         child: Image.network(
-          urlImagen,
+          _urlImagen!,
           fit: BoxFit.cover,
           loadingBuilder: (context, child, loadingProgress) {
             if (loadingProgress == null) return child;
@@ -656,8 +727,8 @@ class VehiculoImagenMiniatura extends StatelessWidget {
               color: Colors.grey[200],
               child: const Center(
                 child: SizedBox(
-                  width: 20,
-                  height: 20,
+                  width: 16,
+                  height: 16,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
@@ -673,14 +744,14 @@ class VehiculoImagenMiniatura extends StatelessWidget {
 
   Widget _buildPlaceholder() {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: BorderRadius.circular(widget.borderRadius),
       child: Container(
-        width: size,
-        height: size,
+        width: widget.size,
+        height: widget.size,
         color: Colors.grey[200],
         child: Icon(
           Icons.directions_car,
-          size: size * 0.5,
+          size: widget.size * 0.5,
           color: Colors.grey[400],
         ),
       ),
@@ -689,17 +760,17 @@ class VehiculoImagenMiniatura extends StatelessWidget {
 
   Widget _buildFolderIcon() {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
+      borderRadius: BorderRadius.circular(widget.borderRadius),
       child: Container(
-        width: size,
-        height: size,
+        width: widget.size,
+        height: widget.size,
         color: Colors.amber[50],
         child: Stack(
           children: [
             Center(
               child: Icon(
                 Icons.folder,
-                size: size * 0.6,
+                size: widget.size * 0.6,
                 color: Colors.amber,
               ),
             ),
@@ -708,7 +779,7 @@ class VehiculoImagenMiniatura extends StatelessWidget {
               right: 4,
               child: Icon(
                 Icons.image,
-                size: size * 0.25,
+                size: widget.size * 0.25,
                 color: Colors.grey[600],
               ),
             ),

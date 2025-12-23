@@ -5,10 +5,8 @@ import 'package:http/http.dart' as http;
 class GoogleDriveService {
   static const String _logPrefix = 'GOOGLE_DRIVE';
   
-  // API Key de Google - Configura tu API Key aquí
-  // Obtenerla en: https://console.cloud.google.com/apis/credentials
-  // Habilitar: Google Drive API
-  static const String? _apiKey = null; // TODO: Poner tu API Key aquí
+  // API Key de Google Drive
+  static const String? _apiKey = 'AIzaSyAUirolyMuYAP_OmSOjku7_bpIKJ0q_KAA';
   
   /// Extrae el ID de una carpeta de Google Drive desde una URL
   static String? extraerFolderId(String url) {

@@ -162,13 +162,13 @@ class _InventarioModuleState extends State<InventarioModule> {
   int get galeriaCrossAxisCount {
     if (isDesktop) return 4;
     if (isTablet) return 3;
-    return 1; // Móvil una columna para evitar overflow
+    return 2; // Móvil 2 columnas
   }
 
   double get galeriaAspectRatio {
     if (isDesktop) return 1.2;
     if (isTablet) return 1.0;
-    return 0.6; // Móvil más compacto
+    return 0.75; // Móvil: tarjetas más cuadradas
   }
 
   int get statsColumns {
@@ -489,6 +489,85 @@ class _InventarioModuleState extends State<InventarioModule> {
   }
 
   Widget _buildFiltrosSection() {
+    if (isMobile) {
+      // Layout vertical para móvil
+      return Container(
+        padding: EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: CorporateTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Column(
+          children: [
+            // Campo de búsqueda
+            SizedBox(
+              height: 40,
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Buscar...',
+                  hintStyle: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                  prefixIcon: Icon(Icons.search, size: 18, color: Colors.grey.shade600),
+                  suffixIcon: _textoBusqueda.isNotEmpty 
+                    ? IconButton(
+                        icon: Icon(Icons.close, size: 16, color: CorporateTheme.textSecondary),
+                        onPressed: () => _searchController.clear(),
+                        padding: EdgeInsets.zero,
+                      )
+                    : null,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide.none,
+                  ),
+                  filled: true,
+                  fillColor: Colors.white,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                style: TextStyle(fontSize: 13, color: CorporateTheme.textPrimary),
+              ),
+            ),
+            SizedBox(height: 8),
+            // Filtros en fila
+            Row(
+              children: [
+                Expanded(
+                  child: _buildFiltroDropdown('Estado', _filtroEstado, 
+                    ['Todos', ...InventarioService.obtenerEstadosDisponibles()], 
+                    (value) => setState(() => _filtroEstado = value ?? 'Todos')),
+                ),
+                SizedBox(width: 8),
+                Expanded(
+                  child: _buildFiltroDropdown('Marca', _filtroMarca, _marcas, 
+                    (value) => setState(() => _filtroMarca = value ?? 'Todas')),
+                ),
+                SizedBox(width: 8),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    onPressed: () {
+                      setState(() {
+                        _filtroEstado = 'Todos';
+                        _filtroMarca = 'Todas';
+                        _searchController.clear();
+                      });
+                    },
+                    icon: Icon(Icons.refresh, size: 18, color: CorporateTheme.textSecondary),
+                    tooltip: 'Limpiar filtros',
+                    constraints: BoxConstraints(minWidth: 40, minHeight: 40),
+                    padding: EdgeInsets.zero,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Layout horizontal para tablet/desktop
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
@@ -732,7 +811,7 @@ class _InventarioModuleState extends State<InventarioModule> {
                     // Imagen o icono de vehículo
                     tieneImagenes
                         ? VehiculoImagenMiniatura(
-                            imagenesUrl: vehiculo['imagenesUrl'],
+                            imagenesUrl: _obtenerImagenesComoLista(vehiculo),
                             size: 50,
                           )
                         : Container(
@@ -976,7 +1055,7 @@ class _InventarioModuleState extends State<InventarioModule> {
               width: 45,
               child: tieneImagenes
                   ? VehiculoImagenMiniatura(
-                      imagenesUrl: vehiculo['imagenesUrl'],
+                      imagenesUrl: _obtenerImagenesComoLista(vehiculo),
                       size: 40,
                     )
                   : Container(
@@ -1145,33 +1224,41 @@ class _InventarioModuleState extends State<InventarioModule> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Imagen del vehículo
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-              child: SizedBox(
-                height: isMobile ? 100 : 120,
-                width: double.infinity,
-                child: tieneImagenes
-                    ? VehiculoImagenes(
-                        imagenesUrl: _obtenerImagenesComoLista(vehiculo),
-                        height: isMobile ? 100 : 120,
-                        showControls: false,
-                        allowFullscreen: false,
-                      )
-                    : Container(
-                        color: Colors.grey.shade100,
-                        child: Icon(
-                          Icons.directions_car,
-                          size: isMobile ? 32 : 40,
-                          color: Colors.grey.shade400,
-                        ),
-                      ),
+            Expanded(
+              flex: 3,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(12),
+                  topRight: Radius.circular(12),
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return SizedBox(
+                      width: constraints.maxWidth,
+                      height: constraints.maxHeight,
+                      child: tieneImagenes
+                          ? VehiculoImagenes(
+                              imagenesUrl: _obtenerImagenesComoLista(vehiculo),
+                              height: constraints.maxHeight,
+                              showControls: false,
+                              allowFullscreen: false,
+                            )
+                          : Container(
+                              color: Colors.grey.shade100,
+                              child: Icon(
+                                Icons.directions_car,
+                                size: isMobile ? 32 : 40,
+                                color: Colors.grey.shade400,
+                              ),
+                            ),
+                    );
+                  },
+                ),
               ),
             ),
             // Información del vehículo
             Expanded(
+              flex: 2,
               child: Padding(
                 padding: EdgeInsets.all(responsivePadding * 0.5),
                 child: Column(

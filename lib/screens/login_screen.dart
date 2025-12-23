@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/auth_service.dart';
 import '../core/exports.dart';
-import 'migration_screen.dart';
-import 'firestore_test_screen.dart';
-import 'manual_migration_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -139,10 +136,6 @@ class _LoginScreenState extends State<LoginScreen>
             _buildLoginButton(),
             const SizedBox(height: CorporateTheme.spacingLG),
             _buildCredentialsHelp(),
-            const SizedBox(height: CorporateTheme.spacingMD),
-            _buildMigrationButton(),
-            _buildFirestoreTestButton(),
-            _buildManualTestButton(),
           ],
         ),
       ),
@@ -390,77 +383,5 @@ class _LoginScreenState extends State<LoginScreen>
         });
       }
     }
-  }
-
-  Widget _buildMigrationButton() {
-    return TextButton.icon(
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const MigrationScreen(),
-          ),
-        );
-      },
-      icon: Icon(
-        Icons.cloud_sync,
-        size: 16,
-        color: Colors.grey.shade600,
-      ),
-      label: Text(
-        'Migración Firebase (Dev)',
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey.shade600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFirestoreTestButton() {
-    return TextButton.icon(
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const FirestoreTestScreen(),
-          ),
-        );
-      },
-      icon: Icon(
-        Icons.storage,
-        size: 16,
-        color: Colors.grey.shade600,
-      ),
-      label: Text(
-        'Test Firestore (Dev)',
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.grey.shade600,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildManualTestButton() {
-    return TextButton.icon(
-      onPressed: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => const ManualMigrationScreen(),
-          ),
-        );
-      },
-      icon: Icon(
-        Icons.science,
-        size: 16,
-        color: Colors.red.shade600,
-      ),
-      label: Text(
-        'Test Manual (Dev)',
-        style: TextStyle(
-          fontSize: 12,
-          color: Colors.red.shade600,
-        ),
-      ),
-    );
   }
 }

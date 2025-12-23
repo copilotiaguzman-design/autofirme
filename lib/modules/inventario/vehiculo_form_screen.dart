@@ -47,6 +47,12 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
   // URL para búsqueda de VIN en base de datos externa
   static const String apiUrlVin = 'https://script.google.com/macros/s/AKfycbyh4_2lpN7xsQTaOyOfe7oZogJzEIBXaoQRe3n8iRyJo3jErmiEPQ1jK3GI2q2QTwoc/exec';
 
+  /// Convierte el texto de URLs a una lista de URLs
+  List<String> _parseImagenesUrl(String text) {
+    if (text.isEmpty) return [];
+    return text.split(RegExp(r'[,\n]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -535,9 +541,8 @@ class _VehiculoFormScreenState extends State<VehiculoFormScreen> {
                 topRight: Radius.circular(12),
               ),
               child: VehiculoImagenes(
-                imagenesUrl: _imagenesUrlController.text,
+                imagenesUrl: _parseImagenesUrl(_imagenesUrlController.text),
                 height: 180,
-                borderRadius: BorderRadius.zero,
               ),
             ),
           ],

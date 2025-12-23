@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'firestore_service.dart';
 import 'inventario_service.dart';
 import 'ventas_service.dart';
@@ -9,6 +10,14 @@ class SyncService {
   // Este servicio maneja la sincronización unidireccional
   // Firestore = Principal (lectura/escritura)
   // Google Sheets = Solo escritura (respaldo visual, nunca se lee de ahí)
+  
+  /// Genera un ID único para vehículos en formato VEH_XXXXXXXX
+  static String _generarIdVehiculo() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final random = Random();
+    final randomPart = List.generate(8, (index) => chars[random.nextInt(chars.length)]).join();
+    return 'VEH_$randomPart';
+  }
 
   // INVENTARIO
   static Future<List<Map<String, dynamic>>> obtenerInventario() async {
@@ -25,6 +34,12 @@ class SyncService {
 
   static Future<void> agregarVehiculo(Map<String, dynamic> vehiculo) async {
     try {
+      // Generar ID si no existe
+      if (vehiculo['id'] == null || vehiculo['id'].toString().isEmpty) {
+        vehiculo['id'] = _generarIdVehiculo();
+        print('📝 [SYNC] ID generado para vehículo: ${vehiculo['id']}');
+      }
+      
       // 1. Agregar a Firestore (principal)
       await FirestoreService.agregarVehiculo(vehiculo);
       

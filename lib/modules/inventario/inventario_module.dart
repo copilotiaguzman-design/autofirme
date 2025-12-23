@@ -53,6 +53,20 @@ class _InventarioModuleState extends State<InventarioModule> {
     });
   }
 
+  /// Convierte el campo imagenesUrl (que puede ser String o List) a List<String>
+  List<String> _obtenerImagenesComoLista(Map<String, dynamic> vehiculo) {
+    final imagenes = vehiculo['imagenesUrl'];
+    if (imagenes == null) return [];
+    if (imagenes is List) {
+      return imagenes.map((e) => e.toString()).where((s) => s.isNotEmpty).toList();
+    }
+    if (imagenes is String && imagenes.isNotEmpty) {
+      // Si es string, puede tener múltiples URLs separadas por comas o saltos de línea
+      return imagenes.split(RegExp(r'[,\n]')).map((s) => s.trim()).where((s) => s.isNotEmpty).toList();
+    }
+    return [];
+  }
+
   void _checkUserPermissions() {
     try {
       // Obtener el rol del usuario actual desde AuthService
@@ -1141,11 +1155,10 @@ class _InventarioModuleState extends State<InventarioModule> {
                 width: double.infinity,
                 child: tieneImagenes
                     ? VehiculoImagenes(
-                        imagenesUrl: vehiculo['imagenesUrl'],
+                        imagenesUrl: _obtenerImagenesComoLista(vehiculo),
                         height: isMobile ? 100 : 120,
-                        borderRadius: BorderRadius.zero,
-                        mostrarBotonAbrir: false,
-                        compacto: true,
+                        showControls: false,
+                        allowFullscreen: false,
                       )
                     : Container(
                         color: Colors.grey.shade100,

@@ -5,9 +5,10 @@ import 'package:http/http.dart' as http;
 class GoogleDriveService {
   static const String _logPrefix = 'GOOGLE_DRIVE';
   
-  // API Key de Google (necesitarás configurar una en Google Cloud Console)
-  // Para producción, considera usar variables de entorno
-  static const String? _apiKey = null; // TODO: Configurar API Key
+  // API Key de Google - Configura tu API Key aquí
+  // Obtenerla en: https://console.cloud.google.com/apis/credentials
+  // Habilitar: Google Drive API
+  static const String? _apiKey = null; // TODO: Poner tu API Key aquí
   
   /// Extrae el ID de una carpeta de Google Drive desde una URL
   static String? extraerFolderId(String url) {
@@ -26,7 +27,12 @@ class GoogleDriveService {
       final foldersIndex = pathSegments.indexOf('folders');
       
       if (foldersIndex != -1 && foldersIndex + 1 < pathSegments.length) {
-        return pathSegments[foldersIndex + 1];
+        String folderId = pathSegments[foldersIndex + 1];
+        // Limpiar el ID de posibles parámetros
+        if (folderId.contains('?')) {
+          folderId = folderId.split('?')[0];
+        }
+        return folderId;
       }
       
       return null;
@@ -144,6 +150,75 @@ class GoogleDriveService {
     return 'https://drive.google.com/embeddedfolderview?id=$folderId#grid';
   }
   
+  /// Detecta el tipo de URL de Google Drive
+  static TipoUrlGoogleDrive detectarTipoUrl(String url) {
+    if (!esUrlGoogleDrive(url)) {
+      return TipoUrlGoogleDrive.noEsGoogleDrive;
+    }
+    
+    // Verificar si es carpeta
+    if (url.contains('/folders/')) {
+      return TipoUrlGoogleDrive.carpeta;
+    }
+    
+    // Verificar si es archivo (imagen)
+    if (url.contains('/file/d/') || url.contains('?id=')) {
+      return TipoUrlGoogleDrive.archivoImagen;
+    }
+    
+    // Por defecto, si es de Google Drive pero no sabemos qué tipo
+    return TipoUrlGoogleDrive.noEsGoogleDrive;
+  }
+  
+  /// Obtiene el contenido de una carpeta de Google Drive
+  /// Retorna lista de mapas con información de cada archivo
+  static Future<List<Map<String, dynamic>>> obtenerContenidoCarpeta(String folderUrl) async {
+    try {
+      final folderId = extraerFolderId(folderUrl);
+      if (folderId == null) {
+        print('WARN [$_logPrefix] No se pudo extraer folder ID de: $folderUrl');
+        return [];
+      }
+      
+      // Si no hay API Key, no podemos listar el contenido
+      if (_apiKey == null) {
+        print('INFO [$_logPrefix] Sin API Key, no se puede listar carpeta');
+        return [];
+      }
+      
+      final url = Uri.parse(
+        'https://www.googleapis.com/drive/v3/files'
+        '?q=\'$folderId\'+in+parents+and+mimeType+contains+\'image\''
+        '&key=$_apiKey'
+        '&fields=files(id,name,mimeType,thumbnailLink,webContentLink)'
+      );
+      
+      final response = await http.get(url);
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final files = data['files'] as List<dynamic>? ?? [];
+        
+        return files.map<Map<String, dynamic>>((file) {
+          final fileId = file['id'] as String;
+          return {
+            'id': fileId,
+            'name': file['name'] ?? 'Imagen',
+            'mimeType': file['mimeType'],
+            'thumbnailLink': 'https://drive.google.com/thumbnail?id=$fileId&sz=w800',
+            'webContentLink': 'https://drive.google.com/uc?export=view&id=$fileId',
+          };
+        }).toList();
+      } else {
+        print('ERROR [$_logPrefix] Error API: ${response.statusCode} - ${response.body}');
+        return [];
+      }
+    } catch (e) {
+      print('ERROR [$_logPrefix] Error obteniendo contenido de carpeta: $e');
+      return [];
+    }
+  }
+  
   /// Parsea una URL de imagen que puede ser de diferentes fuentes
   static ImagenInfo parsearUrlImagen(String? url) {
     if (url == null || url.isEmpty) {
@@ -199,6 +274,13 @@ enum TipoImagen {
   urlGenerica,
   archivoGoogleDrive,
   carpetaGoogleDrive,
+}
+
+/// Tipos de URL de Google Drive
+enum TipoUrlGoogleDrive {
+  noEsGoogleDrive,
+  archivoImagen,
+  carpeta,
 }
 
 /// Información de una imagen

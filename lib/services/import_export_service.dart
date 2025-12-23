@@ -1,29 +1,32 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
 import 'package:universal_html/html.dart' as html;
 import 'package:csv/csv.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
 
 /// Servicio para importar y exportar datos del inventario
 class ImportExportService {
   static const String _logPrefix = 'IMPORT_EXPORT';
 
-  /// Columnas requeridas para la importación
+  /// Columnas requeridas para la importación (solo las esenciales)
   static const List<String> columnasRequeridas = [
     'ano',
     'marca',
     'modelo',
     'vin',
+  ];
+
+  /// Columnas opcionales para la importación (se pueden llenar después en la app)
+  static const List<String> columnasOpcionales = [
     'color',
     'motor',
     'traccion',
     'version',
     'comercializadora',
-  ];
-
-  /// Columnas opcionales para la importación
-  static const List<String> columnasOpcionales = [
     'costo',
     'gastos',
     'precioSugerido',
@@ -58,14 +61,14 @@ class ImportExportService {
     return const ListToCsvConverter().convert(csvData);
   }
 
-  /// Descarga la plantilla CSV
+  /// Descarga la plantilla CSV usando Share Plus
   static Future<void> descargarPlantillaCSV() async {
     try {
       final csvContent = generarPlantillaCSV();
+      final bytes = utf8.encode(csvContent);
       
       if (kIsWeb) {
         // En web, usar descarga HTML
-        final bytes = utf8.encode(csvContent);
         final blob = html.Blob([bytes]);
         final url = html.Url.createObjectUrlFromBlob(blob);
         final anchor = html.AnchorElement()
@@ -78,22 +81,21 @@ class ImportExportService {
         html.Url.revokeObjectUrl(url);
         print('INFO [$_logPrefix] Plantilla CSV descargada (web)');
       } else {
-        // En móvil/desktop, guardar archivo
-        final result = await FilePicker.platform.saveFile(
-          dialogTitle: 'Guardar plantilla de inventario',
-          fileName: 'plantilla_inventario.csv',
-          type: FileType.custom,
-          allowedExtensions: ['csv'],
+        // En móvil, usar Share Plus para compartir el archivo
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/plantilla_inventario.csv');
+        await file.writeAsBytes(bytes);
+        
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Plantilla para importar vehículos al inventario',
+          subject: 'Plantilla Inventario CSV',
         );
         
-        if (result != null) {
-          final file = File(result);
-          await file.writeAsString(csvContent);
-          print('INFO [$_logPrefix] Plantilla CSV guardada en: $result');
-        }
+        print('INFO [$_logPrefix] Plantilla CSV compartida');
       }
     } catch (e) {
-      print('ERROR [$_logPrefix] Error al descargar plantilla: $e');
+      print('ERROR [$_logPrefix] Error al compartir plantilla: $e');
       rethrow;
     }
   }
@@ -249,7 +251,23 @@ class ImportExportService {
     double getCellDouble(String columnName) {
       final value = getCellValue(columnName);
       if (value.isEmpty) return 0.0;
-      return double.tryParse(value.replaceAll(',', '.').replaceAll('\$', '').trim()) ?? 0.0;
+      
+      // Limpiar formato de moneda mexicana: $389,000.00
+      String cleaned = value
+          .replaceAll('\$', '')     // Quitar símbolo $
+          .replaceAll(' ', '')      // Quitar espacios
+          .trim();
+      
+      // Si tiene coma Y punto, la coma es separador de miles (formato: 389,000.00)
+      if (cleaned.contains(',') && cleaned.contains('.')) {
+        cleaned = cleaned.replaceAll(',', ''); // Solo quitar comas (miles)
+      } 
+      // Si solo tiene coma, puede ser separador decimal (formato europeo: 389000,00)
+      else if (cleaned.contains(',') && !cleaned.contains('.')) {
+        cleaned = cleaned.replaceAll(',', '.');
+      }
+      
+      return double.tryParse(cleaned) ?? 0.0;
     }
 
     return {
@@ -270,10 +288,11 @@ class ImportExportService {
     };
   }
 
-  /// Valida que el vehículo tenga todos los campos requeridos
+  /// Valida que el vehículo tenga los campos esenciales
   static List<String> _validarVehiculo(Map<String, dynamic> vehiculo, int numeroFila) {
     final errores = <String>[];
 
+    // Solo validar campos realmente esenciales
     if (vehiculo['ano']?.toString().isEmpty ?? true) {
       errores.add('Fila $numeroFila: El año es requerido');
     } else {
@@ -295,36 +314,18 @@ class ImportExportService {
       errores.add('Fila $numeroFila: El VIN es requerido');
     } else {
       final vin = vehiculo['vin'].toString();
-      if (vin.length < 6) {
-        errores.add('Fila $numeroFila: El VIN debe tener al menos 6 caracteres');
+      if (vin.length < 3) {
+        errores.add('Fila $numeroFila: El VIN debe tener al menos 3 caracteres');
       }
     }
 
-    if (vehiculo['color']?.toString().isEmpty ?? true) {
-      errores.add('Fila $numeroFila: El color es requerido');
-    }
-
-    if (vehiculo['motor']?.toString().isEmpty ?? true) {
-      errores.add('Fila $numeroFila: El motor es requerido');
-    }
-
-    if (vehiculo['traccion']?.toString().isEmpty ?? true) {
-      errores.add('Fila $numeroFila: La tracción es requerida');
-    }
-
-    if (vehiculo['version']?.toString().isEmpty ?? true) {
-      errores.add('Fila $numeroFila: La versión es requerida');
-    }
-
-    if (vehiculo['comercializadora']?.toString().isEmpty ?? true) {
-      errores.add('Fila $numeroFila: La comercializadora es requerida');
-    }
-
-    // Validar estado si está presente
-    final estado = vehiculo['estado']?.toString() ?? 'Disponible';
-    final estadosValidos = ['Disponible', 'Reservado', 'Vendido', 'En Reparación', 'En Tránsito'];
-    if (!estadosValidos.contains(estado)) {
-      errores.add('Fila $numeroFila: Estado inválido ($estado). Use: ${estadosValidos.join(", ")}');
+    // Validar estado si está presente (pero no es requerido)
+    final estado = vehiculo['estado']?.toString() ?? '';
+    if (estado.isNotEmpty) {
+      final estadosValidos = ['Disponible', 'Reservado', 'Vendido', 'En Reparación', 'En Tránsito'];
+      if (!estadosValidos.contains(estado)) {
+        errores.add('Fila $numeroFila: Estado inválido ($estado). Use: ${estadosValidos.join(", ")}');
+      }
     }
 
     return errores;
@@ -381,9 +382,9 @@ class ImportExportService {
 
       final csvContent = const ListToCsvConverter().convert(rows);
       final fileName = 'inventario_${DateTime.now().toIso8601String().split('T')[0]}.csv';
+      final bytes = utf8.encode(csvContent);
 
       if (kIsWeb) {
-        final bytes = utf8.encode(csvContent);
         final blob = html.Blob([bytes]);
         final url = html.Url.createObjectUrlFromBlob(blob);
         final anchor = html.AnchorElement()
@@ -395,17 +396,18 @@ class ImportExportService {
         html.document.body?.children.remove(anchor);
         html.Url.revokeObjectUrl(url);
       } else {
-        final result = await FilePicker.platform.saveFile(
-          dialogTitle: 'Exportar inventario',
-          fileName: fileName,
-          type: FileType.custom,
-          allowedExtensions: ['csv'],
+        // En móvil, usar Share Plus para compartir el archivo
+        final tempDir = await getTemporaryDirectory();
+        final file = File('${tempDir.path}/$fileName');
+        await file.writeAsBytes(bytes);
+        
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Exportación del inventario de vehículos',
+          subject: 'Inventario AutoFirme',
         );
         
-        if (result != null) {
-          final file = File(result);
-          await file.writeAsString(csvContent);
-        }
+        print('INFO [$_logPrefix] Inventario compartido');
       }
 
       print('INFO [$_logPrefix] Inventario exportado: ${vehiculos.length} vehículos');

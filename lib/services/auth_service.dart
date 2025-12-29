@@ -34,10 +34,19 @@ class AuthService extends ChangeNotifier {
   Future<void> _loadAuthState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      _isLoggedIn = prefs.getBool(_keyIsLoggedIn) ?? false;
-      _userEmail = prefs.getString(_keyUserEmail) ?? '';
+      final rememberMe = prefs.getBool(_keyRememberMe) ?? false;
       
-      print('🔐 AuthService: Estado cargado - isLoggedIn: $_isLoggedIn, email: $_userEmail');
+      // Solo cargar el estado si el usuario eligió recordar sesión
+      if (rememberMe) {
+        _isLoggedIn = prefs.getBool(_keyIsLoggedIn) ?? false;
+        _userEmail = prefs.getString(_keyUserEmail) ?? '';
+      } else {
+        // Si no eligió recordar, limpiar la sesión
+        _isLoggedIn = false;
+        _userEmail = '';
+      }
+      
+      print('🔐 AuthService: Estado cargado - isLoggedIn: $_isLoggedIn, email: $_userEmail, rememberMe: $rememberMe');
       notifyListeners();
     } catch (e) {
       print('❌ Error cargando estado de auth: $e');
@@ -90,14 +99,14 @@ class AuthService extends ChangeNotifier {
       _userEmail = '';
       _userData = null;
       
-      // Limpiar caché
+      // Limpiar TODA la caché de autenticación
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(_keyIsLoggedIn);
       await prefs.remove(_keyUserEmail);
       await prefs.remove(_keyRememberMe);
       
       notifyListeners();
-      print('🔓 Logout realizado');
+      print('🔓 Logout completado - todo el caché limpiado');
     } catch (e) {
       print('❌ Error en logout: $e');
     }
@@ -108,14 +117,18 @@ class AuthService extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       
+      await prefs.setBool(_keyRememberMe, rememberMe);
+      
       if (rememberMe) {
+        // Guardar la sesión persistente
         await prefs.setBool(_keyIsLoggedIn, _isLoggedIn);
         await prefs.setString(_keyUserEmail, _userEmail);
-        await prefs.setBool(_keyRememberMe, rememberMe);
+        print('💾 Sesión guardada con persistencia');
       } else {
-        // Solo guardar para esta sesión (no persistir entre reinicios)
-        await prefs.setBool(_keyIsLoggedIn, _isLoggedIn);
-        await prefs.setString(_keyUserEmail, _userEmail);
+        // Limpiar cualquier sesión persistente anterior
+        await prefs.remove(_keyIsLoggedIn);
+        await prefs.remove(_keyUserEmail);
+        print('🗑️ Sesión temporal (sin persistencia)');
       }
     } catch (e) {
       print('❌ Error guardando estado: $e');

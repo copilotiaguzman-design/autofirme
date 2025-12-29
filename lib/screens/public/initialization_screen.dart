@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'catalog_screen.dart';
+import '../../services/auth_service.dart';
+import '../home_screen.dart';
 
 class InitializationScreen extends StatefulWidget {
   const InitializationScreen({super.key});
@@ -16,15 +18,26 @@ class _InitializationScreenState extends State<InitializationScreen> {
   }
 
   Future<void> _initialize() async {
-    // Dar tiempo para que todo se inicialice
+    // Dar tiempo para que todo se inicialice (especialmente AuthService)
     await Future.delayed(const Duration(seconds: 2));
     
     if (mounted) {
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const CatalogScreen(),
-        ),
-      );
+      // Verificar si hay una sesión activa
+      final authService = AuthService.instance;
+      
+      if (authService.isLoggedIn) {
+        // Si hay sesión activa, ir a HomeScreen
+        print('🔐 Sesión activa encontrada, redirigiendo a HomeScreen');
+        Navigator.of(context).pushReplacementNamed('/home');
+      } else {
+        // Si no hay sesión, ir al catálogo público
+        print('📱 Sin sesión activa, mostrando catálogo público');
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => const CatalogScreen(),
+          ),
+        );
+      }
     }
   }
 

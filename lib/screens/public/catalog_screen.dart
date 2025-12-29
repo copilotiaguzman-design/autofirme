@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../theme/corporate_theme.dart';
 import '../../services/sync_service.dart';
 import '../../widgets/vehiculo_imagenes.dart';
@@ -106,6 +107,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
           _isLoading 
             ? const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
             : _buildVehicleGrid(),
+          SliverToBoxAdapter(child: _buildContactSection()),
         ],
       ),
     );
@@ -499,6 +501,145 @@ class _CatalogScreenState extends State<CatalogScreen> {
       );
     } catch (e) {
       return precio.toString();
+    }
+  }
+
+  Widget _buildContactSection() {
+    return Container(
+      margin: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            CorporateTheme.primaryBlue,
+            CorporateTheme.primaryBlue.withOpacity(0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: CorporateTheme.primaryBlue.withOpacity(0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Icon(
+            Icons.phone_in_talk,
+            color: Colors.white,
+            size: 48,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            '¿Te interesa algún vehículo?',
+            style: TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Contáctanos para más información, agendar una cita o realizar una prueba de manejo.',
+            style: TextStyle(
+              fontSize: 16,
+              color: Colors.white70,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _openWhatsApp,
+                  icon: const Icon(Icons.chat, size: 20),
+                  label: const Text('WhatsApp'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF25D366),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: _makePhoneCall,
+                  icon: const Icon(Icons.phone, size: 20),
+                  label: const Text('Llamar'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: CorporateTheme.primaryBlue,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.phone, color: Colors.white, size: 16),
+                SizedBox(width: 8),
+                Text(
+                  '+52 1 81 1627 6550',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openWhatsApp() async {
+    const phoneNumber = '5218116276550';
+    const message = 'Hola, vi sus vehículos en el catálogo de Autofirme y me gustaría obtener más información.';
+    final url = 'https://wa.me/$phoneNumber?text=${Uri.encodeComponent(message)}';
+    
+    try {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      print('Error opening WhatsApp: $e');
+    }
+  }
+
+  Future<void> _makePhoneCall() async {
+    const phoneNumber = '+5218116276550';
+    final url = 'tel:$phoneNumber';
+    
+    try {
+      if (await canLaunchUrl(Uri.parse(url))) {
+        await launchUrl(Uri.parse(url));
+      }
+    } catch (e) {
+      print('Error making phone call: $e');
     }
   }
 }

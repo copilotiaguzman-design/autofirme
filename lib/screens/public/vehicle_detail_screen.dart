@@ -404,7 +404,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
     final marca = widget.vehicle['marca'] ?? '';
     final modelo = widget.vehicle['modelo'] ?? '';
     final mensaje = 'Hola, me interesa el $marca $modelo que vi en la app Autofirme';
-    final url = 'https://wa.me/521XXXXXXXXXX?text=${Uri.encodeComponent(mensaje)}';
+    final url = 'https://wa.me/5218116276550?text=${Uri.encodeComponent(mensaje)}';
     
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
@@ -412,7 +412,7 @@ class _VehicleDetailScreenState extends State<VehicleDetailScreen> {
   }
 
   void _callPhone() async {
-    const url = 'tel:+521XXXXXXXXXX';
+    const url = 'tel:+5218116276550';
     if (await canLaunchUrl(Uri.parse(url))) {
       await launchUrl(Uri.parse(url));
     }

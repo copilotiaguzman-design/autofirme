@@ -24,14 +24,8 @@ void main() async {
     );
     print('✅ Firebase inicializado correctamente');
     
-    // Verificar si está en modo emulador (NO queremos esto)
-    try {
-      // Asegurar que NO esté usando el emulador
-      FirebaseFirestore.instance.useFirestoreEmulator('localhost', 8080);
-      print('⚠️ DETECTADO: Estaba usando emulador local');
-    } catch (e) {
-      print('✅ No hay emulador activo');
-    }
+    // Configurar Firestore para producción
+    print('🔧 Configurando Firestore para producción...');
     
     // Configurar Firestore para forzar conexión online
     FirebaseFirestore.instance.settings = const Settings(

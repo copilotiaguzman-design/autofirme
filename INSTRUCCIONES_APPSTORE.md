@@ -7,13 +7,14 @@ Debes ir a: `https://appstoreconnect.apple.com/apps`
 - **Bundle ID:** `com.autofirme.app` (ya configurado)
 - **Name:** AutoFirme Sistema
 - **Primary Language:** Spanish (Spain) 
-- **SKU:** `autofirme-sistema-app` (o cualquier ID único)
+- **SKU:** `autofirme-sistema-2026` (ID único específico)
 
 ### Datos mínimos requeridos:
-- **App Privacy:** Configura la política de privacidad
-- **Age Rating:** Selecciona la clasificación apropiada  
-- **App Review Information:** Información para revisión
-- **Version Information:** Descripción, screenshots, etc.
+- **App Privacy:** Usar política en privacy_policy.html
+- **Age Rating:** 4+ (Business use)
+- **App Review Information:** Ver APP_STORE_METADATA.md para detalles completos
+- **Version Information:** Descripción detallada, screenshots de calidad, etc.
+- **Demo Account:** brandon@gmail.com / admin123 (para revisión de Apple)
 
 ## ⚠️ IMPORTANTE
 **SIN ESTOS PASOS, EL UPLOAD FALLARÁ** porque Apple necesita que la app esté registrada primero en App Store Connect.
